@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wind Optimal Route</title>
+  <style>
+    :root{--bg:#0b1020;--panel:#121a2d;--line:#273454;--text:#eef3ff;--muted:#9fb0d0;--accent:#6ea8fe;--good:#67d391;--bad:#ff8c8c}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{max-width:1180px;margin:0 auto;padding:24px}.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}@media(max-width:650px){.row,.row3{grid-template-columns:1fr}}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}input,select,textarea,button{width:100%;font:inherit;border-radius:10px;border:1px solid var(--line);background:#0d1426;color:var(--text);padding:10px}textarea{min-height:330px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45}
+    button{cursor:pointer;background:#1d5fbf;border-color:#2f78db;font-weight:700}button.secondary{background:#18233d;border-color:var(--line)}button:disabled{opacity:.55;cursor:not-allowed}
+    h1{font-size:24px;margin:0 0 6px}h2{font-size:17px;margin:0 0 12px}.muted{color:var(--muted);font-size:13px}.status{margin-top:12px;font-size:13px;white-space:pre-wrap}.ok{color:var(--good)}.err{color:var(--bad)}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}@media(max-width:650px){.summary{grid-template-columns:1fr 1fr}}.metric{background:#0d1426;border:1px solid var(--line);border-radius:12px;padding:12px}.metric b{display:block;font-size:20px}.metric span{font-size:11px;color:var(--muted)}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}.scroll{overflow:auto;max-height:460px}.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#1b2946;color:#cfe0ff;font-size:11px}
+    .sp{height:12px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Wind Optimal Route</h1>
+  <div class="muted">SkyVector GPX RAW → A/B 선택 → GFS 상층풍 + 거리로 최소 ETE route 계산</div>
+  <div class="sp"></div>
+  <div class="grid">
+    <section class="card">
+      <h2>1. GPX RAW 붙여넣기</h2>
+      <textarea id="gpx" placeholder="<?xml ...> ... </gpx>"></textarea>
+      <div class="sp"></div>
+      <div class="row">
+        <button id="parseBtn" class="secondary">GPX 읽기</button>
+        <button id="clearBtn" class="secondary">초기화</button>
+      </div>
+      <div id="parseStatus" class="status muted"></div>
+    </section>
+
+    <section class="card">
+      <h2>2. 분석 조건</h2>
+      <div class="row">
+        <div><label>A waypoint</label><select id="aSel"><option>GPX를 먼저 읽어주세요</option></select></div>
+        <div><label>B waypoint</label><select id="bSel"><option>GPX를 먼저 읽어주세요</option></select></div>
+      </div>
+      <div class="sp"></div>
+      <div class="row">
+        <div><label>ETD UTC</label><input id="etd" type="datetime-local"></div>
+        <div><label>Flight Level</label><input id="fl" type="number" value="390" min="100" max="500" step="10"></div>
+      </div>
+      <div class="sp"></div>
+      <div class="row3">
+        <div><label>TAS (kt)</label><input id="tas" type="number" value="470"></div>
+        <div><label>Corridor ±NM</label><input id="corridor" type="number" value="300"></div>
+        <div><label>Lateral step NM</label><input id="latStep" type="number" value="60"></div>
+      </div>
+      <div class="sp"></div>
+      <div><label>Along-track step NM</label><input id="alongStep" type="number" value="220"></div>
+      <div class="sp"></div>
+      <div><label>Apps Script Web App URL</label><input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/...../exec"></div>
+      <div class="sp"></div>
+      <button id="runBtn">최적 Route 계산</button>
+      <div id="runStatus" class="status muted"></div>
+    </section>
+  </div>
+
+  <div class="sp"></div>
+  <section class="card" id="resultCard" hidden>
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+      <h2 style="margin:0">3. 결과</h2><span class="pill" id="basis"></span>
+    </div>
+    <div class="summary">
+      <div class="metric"><b id="mOptEte">-</b><span>Optimized ETE</span></div>
+      <div class="metric"><b id="mDirEte">-</b><span>Direct ETE</span></div>
+      <div class="metric"><b id="mSave">-</b><span>Time saving</span></div>
+      <div class="metric"><b id="mOptDist">-</b><span>Optimized distance</span></div>
+      <div class="metric"><b id="mExtra">-</b><span>Extra distance</span></div>
+      <div class="metric"><b id="mTw">-</b><span>Avg tailwind</span></div>
+    </div>
+    <h2>Optimized coordinates</h2>
+    <div class="scroll"><table><thead><tr><th>Point</th><th>Lat</th><th>Lon</th><th>ETA UTC</th><th>Cum NM</th></tr></thead><tbody id="routeRows"></tbody></table></div>
+    <div class="sp"></div>
+    <h2>Leg details</h2>
+    <div class="scroll"><table><thead><tr><th>Leg</th><th>Dist</th><th>CRS</th><th>Wind</th><th>TW</th><th>XW</th><th>GS</th><th>ETE</th></tr></thead><tbody id="legRows"></tbody></table></div>
+  </section>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  let wpts = [];
+
+  function parseGpx(xmlText){
+    const doc = new DOMParser().parseFromString(xmlText,'application/xml');
+    if(doc.querySelector('parsererror')) throw new Error('GPX XML 형식이 올바르지 않습니다.');
+    const pts=[...doc.getElementsByTagNameNS('*','rtept')];
+    if(!pts.length) throw new Error('rtept가 없습니다.');
+    return pts.map((el,i)=>{
+      const nameEl=[...el.children].find(x=>x.localName==='name');
+      const lat=Number(el.getAttribute('lat')), lon=Number(el.getAttribute('lon'));
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)) throw new Error('잘못된 좌표가 있습니다.');
+      return {name:(nameEl?.textContent||`WP${i+1}`).trim(),lat,lon};
+    });
+  }
+
+  function fillSelectors(){
+    const html=wpts.map((p,i)=>`<option value="${i}">${escapeHtml(p.name)}  (${p.lat.toFixed(4)}, ${p.lon.toFixed(4)})</option>`).join('');
+    $('aSel').innerHTML=html; $('bSel').innerHTML=html;
+    $('aSel').value='0'; $('bSel').value=String(wpts.length-1);
+  }
+
+  function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+  function fmtSec(sec){sec=Math.max(0,Math.round(Number(sec)||0));const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return `${h}:${String(m).padStart(2,'0')}`;}
+  function signed(n,suffix=''){const x=Number(n)||0;return `${x>=0?'+':''}${x.toFixed(1)}${suffix}`;}
+
+  $('parseBtn').addEventListener('click',()=>{
+    try{wpts=parseGpx($('gpx').value);fillSelectors();$('parseStatus').className='status ok';$('parseStatus').textContent=`${wpts.length}개 waypoint 추출 완료: ${wpts[0].name} → ${wpts[wpts.length-1].name}`;}
+    catch(e){$('parseStatus').className='status err';$('parseStatus').textContent=e.message;}
+  });
+
+  $('clearBtn').addEventListener('click',()=>{
+    $('gpx').value=''; wpts=[]; $('aSel').innerHTML='<option>GPX를 먼저 읽어주세요</option>'; $('bSel').innerHTML='<option>GPX를 먼저 읽어주세요</option>'; $('parseStatus').textContent=''; $('resultCard').hidden=true;
+  });
+
+  // default ETD = next UTC hour
+  const d=new Date(Date.now()+3600000); d.setUTCMinutes(0,0,0);
+  $('etd').value = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  $('runBtn').addEventListener('click',async()=>{
+    const btn=$('runBtn');
+    try{
+      if(!wpts.length) throw new Error('먼저 GPX를 읽어주세요.');
+      const ai=Number($('aSel').value), bi=Number($('bSel').value);
+      if(!Number.isInteger(ai)||!Number.isInteger(bi)||ai===bi) throw new Error('A/B waypoint를 서로 다르게 선택하세요.');
+      const url=$('apiUrl').value.trim(); if(!url) throw new Error('Apps Script Web App URL을 입력하세요.');
+      const local=$('etd').value; if(!local) throw new Error('ETD UTC를 입력하세요.');
+      // datetime-local is treated as the literal UTC fields entered by user.
+      const etdUtc=local.length===16 ? local+':00Z' : local+'Z';
+      const payload={action:'optimize',a:wpts[ai],b:wpts[bi],etdUtc,
+        flightLevel:Number($('fl').value),tasKt:Number($('tas').value),corridorNm:Number($('corridor').value),
+        alongStepNm:Number($('alongStep').value),lateralStepNm:Number($('latStep').value)};
+
+      btn.disabled=true; $('runStatus').className='status muted'; $('runStatus').textContent='GFS wind 다운로드 및 최적 route 계산 중...';
+      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow'});
+      const text=await res.text();
+      let data; try{data=JSON.parse(text)}catch(_){throw new Error('Backend 응답이 JSON이 아닙니다: '+text.slice(0,180));}
+      if(!data.ok) throw new Error(data.error||'Backend error');
+      render(data.result); $('runStatus').className='status ok'; $('runStatus').textContent='계산 완료.';
+    }catch(e){$('runStatus').className='status err';$('runStatus').textContent=e.message;}
+    finally{btn.disabled=false;}
+  });
+
+  function render(r){
+    const s=r.summary;
+    $('resultCard').hidden=false;
+    $('basis').textContent=`GFS ${r.input.pressureLevelHpa} hPa / FL${r.input.flightLevel}`;
+    $('mOptEte').textContent=fmtSec(s.optimizedEteSec);
+    $('mDirEte').textContent=fmtSec(s.directEteSec);
+    $('mSave').textContent=(s.timeSavingSec>=0?'+':'')+fmtSec(Math.abs(s.timeSavingSec))+(s.timeSavingSec>=0?' saved':' slower');
+    $('mOptDist').textContent=`${s.optimizedDistanceNm.toFixed(1)} NM`;
+    $('mExtra').textContent=signed(s.extraDistanceNm,' NM');
+    $('mTw').textContent=`${signed(s.optimizedAvgTailwindKt,' kt')}`;
+
+    $('routeRows').innerHTML=r.route.map(p=>`<tr><td>${escapeHtml(p.name)}</td><td>${p.lat.toFixed(5)}</td><td>${p.lon.toFixed(5)}</td><td>${escapeHtml((p.etaUtc||'').replace('T',' ').replace('.000Z','Z'))}</td><td>${p.cumulativeNm.toFixed(1)}</td></tr>`).join('');
+    $('legRows').innerHTML=r.legs.map((l,i)=>`<tr><td>${i+1}</td><td>${l.distanceNm.toFixed(1)}</td><td>${l.courseDeg}°</td><td>${l.windDirDeg}°/${l.windSpeedKt.toFixed(0)}kt</td><td>${signed(l.tailwindKt,'')}</td><td>${signed(l.crosswindKt,'')}</td><td>${l.groundSpeedKt.toFixed(0)}</td><td>${fmtSec(l.eteSec)}</td></tr>`).join('');
+    $('resultCard').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+})();
+</script>
+</body>
+</html>
