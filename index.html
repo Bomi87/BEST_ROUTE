@@ -98,8 +98,8 @@
 
       <div class="sp"></div>
       <div class="note">
-        TAS / corridor / grid 간격은 내부값으로 자동 처리합니다.<br>
-        선택 날짜의 00Z · 06Z · 12Z · 18Z 풍장을 모두 사용하여 하루 전체에서 평균적으로 유리한 A-B route를 찾습니다.
+        탐색 범위와 계산 격자는 내부에서 자동 처리하며, 북쪽 탐색 한계는 67°N입니다.<br>
+        선택 날짜의 00Z · 06Z · 12Z · 18Z 풍장을 사용해 기존 A-B 구간보다 실제 평균 비행시간이 짧을 때만 route를 변경합니다.
       </div>
 
       <div class="sp"></div>
@@ -308,7 +308,9 @@
         a: wpts[ai],
         b: wpts[bi],
         analysisDate,
-        flightLevel
+        flightLevel,
+        // '기존' 비교 기준은 GPX에 들어 있는 실제 A-B 구간입니다.
+        baseRoute: wpts.slice(ai, bi + 1)
       };
 
       btn.disabled = true;
@@ -340,7 +342,9 @@
       $('routeTextOut').value = lastRouteText;
 
       $('runStatus').className = 'status ok';
-      $('runStatus').textContent = '계산 완료. Route text와 A-B 구간이 최적 route로 교체된 GPX를 생성했습니다.';
+      $('runStatus').textContent = data.result.summary.routeChanged
+        ? '계산 완료. 기존 A-B 구간보다 빠른 route로 교체했습니다.'
+        : '계산 완료. 더 빠른 후보가 없어 기존 A-B route를 유지했습니다.';
     } catch (e) {
       $('runStatus').className = 'status err';
       $('runStatus').textContent = e.message;
@@ -356,20 +360,21 @@
     $('basis').textContent =
       `${r.input.analysisDate} / 00·06·12·18Z / GFS ${r.input.pressureLevelHpa} hPa / FL${r.input.flightLevel}`;
 
-    $('mDirEte').textContent = fmtSec(s.directAvgEteSec);
+    $('mDirEte').textContent = fmtSec(s.existingAvgEteSec ?? s.directAvgEteSec);
     $('mOptEte').textContent = fmtSec(s.optimizedAvgEteSec);
-    $('mDirTw').textContent = signed(s.directAvgTailwindKt, ' kt');
+    $('mDirTw').textContent = signed(s.existingAvgTailwindKt ?? s.directAvgTailwindKt, ' kt');
     $('mOptTw').textContent = signed(s.optimizedAvgTailwindKt, ' kt');
 
-    const save = Number(s.avgTimeSavingSec || 0);
-    $('mSave').textContent = save >= 0
+    const save = Math.max(0, Number(s.avgTimeSavingSec || 0));
+    $('mSave').textContent = s.routeChanged && save > 0
       ? `${fmtSec(save)} 단축`
-      : `${fmtSec(Math.abs(save))} 증가`;
+      : '변화 없음';
 
-    $('boundaryWarn').hidden = !s.boundaryHit;
-    $('boundaryWarn').textContent = s.boundaryHit
-      ? '주의: 최적 route가 내부 탐색 corridor 경계에 닿았습니다.'
-      : '';
+    const warnings = [];
+    if (s.boundaryHit) warnings.push('최적 route가 내부 탐색 폭의 끝에 닿았습니다.');
+    if (s.northLimitHit) warnings.push('최적 route가 북쪽 제한 67°N 부근까지 올라갔습니다.');
+    $('boundaryWarn').hidden = warnings.length === 0;
+    $('boundaryWarn').textContent = warnings.length ? '주의: ' + warnings.join(' ') : '';
 
     $('resultCard').scrollIntoView({behavior:'smooth', block:'start'});
   }
@@ -393,11 +398,15 @@
     const afterNames = wpts.slice(bi + 1).map(p => p.name);
 
     const optTokens = optimizedRoute.map((p, idx) => {
-      // Keep the real A/B fix names. Only generated intermediate OPT points
-      // are converted to coordinate tokens for copy/paste use.
       if (idx === 0) return wpts[ai].name;
       if (idx === optimizedRoute.length - 1) return wpts[bi].name;
-      return toAviationCoordToken(p.lat, p.lon);
+
+      // Newly generated points are exported as coordinates. If the optimizer
+      // kept the existing route, preserve the original waypoint names.
+      if (/^OPT\d+$/i.test(String(p.name || ''))) {
+        return toAviationCoordToken(p.lat, p.lon);
+      }
+      return p.name || toAviationCoordToken(p.lat, p.lon);
     });
 
     return [...beforeNames, ...optTokens, ...afterNames]
