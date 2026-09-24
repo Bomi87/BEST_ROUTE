@@ -54,8 +54,6 @@
       <div class="sp"></div>
       <div><label>Along-track step NM</label><input id="alongStep" type="number" value="220"></div>
       <div class="sp"></div>
-      <div><label>Apps Script Web App URL</label><input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/...../exec"></div>
-      <div class="sp"></div>
       <button id="runBtn">최적 Route 계산</button>
       <div id="runStatus" class="status muted"></div>
     </section>
@@ -85,6 +83,11 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
+
+  // Apps Script Web App 배포 URL을 아래에 1회만 입력하세요.
+  // 반드시 /exec 로 끝나는 URL을 사용합니다.
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzG5kwQ5PYMXFhIWoRESTX3fpkMeQcaegmykYiLHKSJXS3CpG74qRePkcFSIzD88Jwo/exec';
+
   let wpts = [];
 
   function parseGpx(xmlText){
@@ -129,7 +132,10 @@
       if(!wpts.length) throw new Error('먼저 GPX를 읽어주세요.');
       const ai=Number($('aSel').value), bi=Number($('bSel').value);
       if(!Number.isInteger(ai)||!Number.isInteger(bi)||ai===bi) throw new Error('A/B waypoint를 서로 다르게 선택하세요.');
-      const url=$('apiUrl').value.trim(); if(!url) throw new Error('Apps Script Web App URL을 입력하세요.');
+      const url=BACKEND_URL.trim();
+      if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url) || url.includes('여기에_배포_ID')) {
+        throw new Error('프론트 코드의 BACKEND_URL에 Apps Script /exec URL을 입력하세요.');
+      }
       const local=$('etd').value; if(!local) throw new Error('ETD UTC를 입력하세요.');
       // datetime-local is treated as the literal UTC fields entered by user.
       const etdUtc=local.length===16 ? local+':00Z' : local+'Z';
