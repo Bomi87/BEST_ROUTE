@@ -29,10 +29,17 @@
     .muted{color:var(--muted);font-size:13px}
     .status{margin-top:12px;font-size:13px;white-space:pre-wrap}
     .ok{color:var(--good)}.err{color:var(--bad)}.warn{color:var(--warn)}
-    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
-    @media(max-width:650px){.summary{grid-template-columns:1fr 1fr}}
-    .metric{background:#0d1426;border:1px solid var(--line);border-radius:12px;padding:12px}
-    .metric b{display:block;font-size:20px}.metric span{font-size:11px;color:var(--muted)}
+    .summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+    @media(max-width:650px){.summary{grid-template-columns:1fr}}
+    .compare{background:#0d1426;border:1px solid var(--line);border-radius:12px;padding:16px}
+    .compare h3{margin:0 0 12px;font-size:15px}
+    .compareRow{display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+    .compareRow:last-child{border-bottom:0}
+    .compareRow span{font-size:12px;color:var(--muted)}
+    .compareRow b{font-size:20px}
+    .timeDiff{margin:12px 0 4px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#0d1426;display:flex;justify-content:space-between;gap:16px;align-items:center}
+    .timeDiff span{font-size:13px;color:var(--muted)}
+    .timeDiff b{font-size:22px;color:var(--good)}
     table{width:100%;border-collapse:collapse;font-size:12px}
     th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
     th:first-child,td:first-child{text-align:left}
@@ -110,46 +117,36 @@
     </div>
 
     <div class="summary">
-      <div class="metric"><b id="mOptEte">-</b><span>Optimized avg ETE</span></div>
-      <div class="metric"><b id="mDirEte">-</b><span>Direct avg ETE</span></div>
-      <div class="metric"><b id="mSave">-</b><span>Average time saving</span></div>
-      <div class="metric"><b id="mOptDist">-</b><span>Optimized distance</span></div>
-      <div class="metric"><b id="mExtra">-</b><span>Extra distance</span></div>
-      <div class="metric"><b id="mTw">-</b><span>Optimized avg tailwind</span></div>
+      <div class="compare">
+        <h3>기존</h3>
+        <div class="compareRow"><span>평균 비행시간</span><b id="mDirEte">-</b></div>
+        <div class="compareRow"><span>Avg Tailwind</span><b id="mDirTw">-</b></div>
+      </div>
+
+      <div class="compare">
+        <h3>수정 후</h3>
+        <div class="compareRow"><span>평균 비행시간</span><b id="mOptEte">-</b></div>
+        <div class="compareRow"><span>Avg Tailwind</span><b id="mOptTw">-</b></div>
+      </div>
+    </div>
+
+    <div class="timeDiff">
+      <span>시간 차이</span>
+      <b id="mSave">-</b>
     </div>
 
     <div id="boundaryWarn" class="status warn" hidden></div>
 
-    <h2>00 / 06 / 12 / 18Z 비교</h2>
-    <div class="scroll">
-      <table>
-        <thead>
-          <tr><th>UTC</th><th>Direct ETE</th><th>Optimized ETE</th><th>Saving</th><th>Direct TW</th><th>Optimized TW</th></tr>
-        </thead>
-        <tbody id="snapshotRows"></tbody>
-      </table>
-    </div>
+    <div class="sp2"></div>
+    <h2>4. Route text</h2>
+    <div class="muted">원본 route의 A 이전/B 이후 waypoint는 유지하고, 최적화 구간의 중간점은 위도·경도 좌표로 변환합니다.</div>
+    <div class="sp"></div>
+    <textarea id="routeTextOut" readonly style="min-height:120px"></textarea>
+    <div class="sp"></div>
+    <button id="copyRouteBtn">Route text 복사</button>
 
     <div class="sp2"></div>
-    <h2>Optimized coordinates</h2>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Point</th><th>Lat</th><th>Lon</th><th>Offset</th><th>Cum NM</th></tr></thead>
-        <tbody id="routeRows"></tbody>
-      </table>
-    </div>
-
-    <div class="sp2"></div>
-    <h2>Leg details — daily average</h2>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Leg</th><th>Dist</th><th>CRS</th><th>Avg TW</th><th>Avg GS</th><th>Avg ETE</th></tr></thead>
-        <tbody id="legRows"></tbody>
-      </table>
-    </div>
-
-    <div class="sp2"></div>
-    <h2>4. Optimized GPX</h2>
+    <h2>5. Optimized GPX</h2>
     <div class="muted">원본 GPX에서 A~B 구간을 새 OPT 좌표들로 교체한 전체 GPX입니다.</div>
     <div class="sp"></div>
     <textarea id="gpxOut" readonly></textarea>
@@ -175,6 +172,7 @@
   let wpts = [];
   let routeName = 'WIND-OPT';
   let lastOptimizedGpx = '';
+  let lastRouteText = '';
 
   function parseGpx(xmlText) {
     const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
@@ -264,8 +262,10 @@
   $('clearBtn').addEventListener('click', () => {
     $('gpx').value = '';
     $('gpxOut').value = '';
+    $('routeTextOut').value = '';
     wpts = [];
     lastOptimizedGpx = '';
+    lastRouteText = '';
     $('aSel').innerHTML = '<option>GPX를 먼저 읽어주세요</option>';
     $('bSel').innerHTML = '<option>GPX를 먼저 읽어주세요</option>';
     $('parseStatus').textContent = '';
@@ -289,7 +289,7 @@
       }
 
       const url = BACKEND_URL.trim();
-      if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url) || url.includes('여기에_배포_ID')) {
+      if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) {
         throw new Error('프론트 코드의 BACKEND_URL에 Apps Script /exec URL을 입력하세요.');
       }
 
@@ -336,8 +336,11 @@
       lastOptimizedGpx = buildFullOptimizedGpx(ai, bi, data.result.route, data.result);
       $('gpxOut').value = lastOptimizedGpx;
 
+      lastRouteText = buildFullRouteText(ai, bi, data.result.route);
+      $('routeTextOut').value = lastRouteText;
+
       $('runStatus').className = 'status ok';
-      $('runStatus').textContent = '계산 완료. A-B 구간이 최적 route로 교체된 GPX도 생성했습니다.';
+      $('runStatus').textContent = '계산 완료. Route text와 A-B 구간이 최적 route로 교체된 GPX를 생성했습니다.';
     } catch (e) {
       $('runStatus').className = 'status err';
       $('runStatus').textContent = e.message;
@@ -353,56 +356,53 @@
     $('basis').textContent =
       `${r.input.analysisDate} / 00·06·12·18Z / GFS ${r.input.pressureLevelHpa} hPa / FL${r.input.flightLevel}`;
 
-    $('mOptEte').textContent = fmtSec(s.optimizedAvgEteSec);
     $('mDirEte').textContent = fmtSec(s.directAvgEteSec);
+    $('mOptEte').textContent = fmtSec(s.optimizedAvgEteSec);
+    $('mDirTw').textContent = signed(s.directAvgTailwindKt, ' kt');
+    $('mOptTw').textContent = signed(s.optimizedAvgTailwindKt, ' kt');
 
     const save = Number(s.avgTimeSavingSec || 0);
     $('mSave').textContent = save >= 0
-      ? `${fmtSec(save)} saved`
-      : `${fmtSec(Math.abs(save))} slower`;
-
-    $('mOptDist').textContent = `${s.optimizedDistanceNm.toFixed(1)} NM`;
-    $('mExtra').textContent = signed(s.extraDistanceNm, ' NM');
-    $('mTw').textContent = signed(s.optimizedAvgTailwindKt, ' kt');
+      ? `${fmtSec(save)} 단축`
+      : `${fmtSec(Math.abs(save))} 증가`;
 
     $('boundaryWarn').hidden = !s.boundaryHit;
     $('boundaryWarn').textContent = s.boundaryHit
-      ? '주의: 최적 route가 내부 탐색 corridor 경계에 닿았습니다. 더 넓은 탐색 영역에서 추가 개선 가능성이 있을 수 있습니다.'
+      ? '주의: 최적 route가 내부 탐색 corridor 경계에 닿았습니다.'
       : '';
 
-    $('snapshotRows').innerHTML = r.snapshots.map(x => `
-      <tr>
-        <td>${String(x.hourUtc).padStart(2,'0')}Z</td>
-        <td>${fmtSec(x.directEteSec)}</td>
-        <td>${fmtSec(x.optimizedEteSec)}</td>
-        <td>${x.savingSec >= 0 ? '+' : '-'}${fmtSec(Math.abs(x.savingSec))}</td>
-        <td>${signed(x.directAvgTailwindKt, ' kt')}</td>
-        <td>${signed(x.optimizedAvgTailwindKt, ' kt')}</td>
-      </tr>
-    `).join('');
-
-    $('routeRows').innerHTML = r.route.map(p => `
-      <tr>
-        <td>${escapeHtml(p.name)}</td>
-        <td>${p.lat.toFixed(5)}</td>
-        <td>${p.lon.toFixed(5)}</td>
-        <td>${signed(p.offsetNm, ' NM')}</td>
-        <td>${p.cumulativeNm.toFixed(1)}</td>
-      </tr>
-    `).join('');
-
-    $('legRows').innerHTML = r.legs.map(l => `
-      <tr>
-        <td>${escapeHtml(l.from)} → ${escapeHtml(l.to)}</td>
-        <td>${l.distanceNm.toFixed(1)}</td>
-        <td>${l.courseDeg}°</td>
-        <td>${signed(l.avgTailwindKt, ' kt')}</td>
-        <td>${l.avgGroundSpeedKt.toFixed(0)} kt</td>
-        <td>${fmtSec(l.avgEteSec)}</td>
-      </tr>
-    `).join('');
-
     $('resultCard').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function toAviationCoordToken(lat, lon) {
+    // DDMMNDDDMME/W. Minutes are rounded to nearest whole minute.
+    // Example: 53.645N, -177.258W -> 5339N17715W
+    function part(value, degDigits, posHem, negHem) {
+      const hem = value >= 0 ? posHem : negHem;
+      let abs = Math.abs(Number(value));
+      let deg = Math.floor(abs);
+      let min = Math.round((abs - deg) * 60);
+      if (min === 60) { deg += 1; min = 0; }
+      return String(deg).padStart(degDigits, '0') + String(min).padStart(2, '0') + hem;
+    }
+    return part(lat, 2, 'N', 'S') + part(lon, 3, 'E', 'W');
+  }
+
+  function buildFullRouteText(ai, bi, optimizedRoute) {
+    const beforeNames = wpts.slice(0, ai).map(p => p.name);
+    const afterNames = wpts.slice(bi + 1).map(p => p.name);
+
+    const optTokens = optimizedRoute.map((p, idx) => {
+      // Keep the real A/B fix names. Only generated intermediate OPT points
+      // are converted to coordinate tokens for copy/paste use.
+      if (idx === 0) return wpts[ai].name;
+      if (idx === optimizedRoute.length - 1) return wpts[bi].name;
+      return toAviationCoordToken(p.lat, p.lon);
+    });
+
+    return [...beforeNames, ...optTokens, ...afterNames]
+      .filter(Boolean)
+      .join(' ');
   }
 
   function buildFullOptimizedGpx(ai, bi, optimizedRoute, result) {
@@ -454,6 +454,30 @@
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  $('copyRouteBtn').addEventListener('click', async () => {
+    if (!lastRouteText) return;
+    const btn = $('copyRouteBtn');
+    const original = btn.textContent;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(lastRouteText);
+      } else {
+        const ta = $('routeTextOut');
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+      }
+      btn.textContent = '복사 완료';
+      setTimeout(() => { btn.textContent = original; }, 1200);
+    } catch (_) {
+      const ta = $('routeTextOut');
+      ta.focus();
+      ta.select();
+      btn.textContent = '전체 선택됨 — Ctrl+C';
+      setTimeout(() => { btn.textContent = original; }, 1800);
+    }
   });
 
   $('selectGpxBtn').addEventListener('click', () => {
