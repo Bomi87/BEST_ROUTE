@@ -297,9 +297,9 @@
         <div id="runStatus" class="status muted"></div>
 
         <div class="route-preview">
-          <div class="route-preview-title">Original Route</div>
+          <div class="route-preview-title">Original Route (전체)</div>
           <div id="originalRoutePreview" class="route-preview-text">
-            GPX를 읽으면 선택 구간 Route가 표시됩니다.
+            GPX를 읽으면 전체 Route가 표시됩니다.
           </div>
         </div>
       </section>
@@ -333,7 +333,7 @@
       <div class="sp"></div>
 
       <div class="result-box">
-        <div class="result-title">Route</div>
+        <div class="result-title">Optimized Route (전체)</div>
         <div id="routeInfo" style="font-size:13px;line-height:1.6;word-break:break-word">
           -
         </div>
@@ -443,21 +443,14 @@
   function updateOriginalRoutePreview(){
     if(!wpts.length){
       $('originalRoutePreview').textContent =
-        'GPX를 읽으면 선택 구간 Route가 표시됩니다.';
+        'GPX를 읽으면 전체 Route가 표시됩니다.';
       return;
     }
 
-    const ai = Number($('aSel').value);
-    const bi = Number($('bSel').value);
-
-    if(!Number.isInteger(ai) || !Number.isInteger(bi) || ai > bi){
-      $('originalRoutePreview').textContent = '-';
-      return;
-    }
-
+    // A/B는 최적화할 구간만 지정한다.
+    // Original Route 표시는 항상 입력 GPX 전체 Route를 보여준다.
     $('originalRoutePreview').textContent =
       wpts
-        .slice(ai,bi+1)
         .map(p => p.name)
         .join(' → ');
   }
@@ -495,7 +488,7 @@
     $('parseStatus').textContent = '';
     $('runStatus').textContent = '';
     $('originalRoutePreview').textContent =
-      'GPX를 읽으면 선택 구간 Route가 표시됩니다.';
+      'GPX를 읽으면 전체 Route가 표시됩니다.';
     $('resultCard').hidden = true;
   });
 
@@ -662,8 +655,12 @@ renderResult(data.result);
       $('saving').className = 'saving muted';
     }
 
+    // 화면의 Optimized Route도 A~B segment만이 아니라
+    // A 이전 + optimized A~B + B 이후를 합친 전체 Route로 표시한다.
+    const fullPoints = buildFullPoints();
+
     const routeText =
-      (r.finalSegment || [])
+      fullPoints
         .map(p => {
           if (p.name && !/^OPT\d+$/i.test(p.name)) {
             return p.name;
@@ -680,15 +677,11 @@ renderResult(data.result);
         .replace('T',' ')
         .replace(':00:00Z','Z');
 
-    const extraLimit =
-      Number(s.allowedExtraDistanceNm || 0).toFixed(0);
-
     $('basis').textContent =
       `분석 기준 ${t} · ` +
       `FL${r.input.flightLevel} · ` +
       `${r.input.pressureLevelHpa} hPa · ` +
-      `TAS ${r.input.referenceTasKt} kt · ` +
-      `최대 추가거리 +${extraLimit} NM`;
+      `TAS ${r.input.referenceTasKt} kt`;
 
     $('resultCard').scrollIntoView({
       behavior:'smooth',
