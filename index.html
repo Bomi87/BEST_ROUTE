@@ -312,7 +312,7 @@
 
       <div class="results">
         <div class="result-box">
-          <div class="result-title">기존</div>
+          <div class="result-title">기존 (전체 Route)</div>
           <div class="result-time" id="originalTime">-</div>
           <div class="result-wind" id="originalWind">Avg Tailwind -</div>
           <div class="result-wind" id="originalDistance">Distance -</div>
@@ -321,7 +321,7 @@
         <div class="arrow">→</div>
 
         <div class="result-box">
-          <div class="result-title">수정 후</div>
+          <div class="result-title">수정 후 (전체 Route)</div>
           <div class="result-time" id="finalTime">-</div>
           <div class="result-wind" id="finalWind">Avg Tailwind -</div>
           <div class="result-wind" id="finalDistance">Distance -</div>
@@ -530,8 +530,11 @@
         throw new Error('Flight Level을 확인하세요.');
       }
 
-      const originalRoute =
-        wpts.slice(ai,bi+1).map(p=>({
+      // v21: A~B는 최적화 대상 범위만 지정한다.
+      // 백엔드에는 GPX 전체 route를 보내고,
+      // ETE / Distance / Avg Tailwind는 전체 구간 기준으로 계산한다.
+      const fullRoute =
+        wpts.map(p=>({
           name:p.name,
           lat:p.lat,
           lon:p.lon
@@ -541,7 +544,9 @@
         action:'optimize',
         analysisDate,
         flightLevel:fl,
-        originalRoute
+        fullRoute,
+        aIndex:ai,
+        bIndex:bi
       };
 
       btn.disabled = true;
@@ -681,7 +686,8 @@ renderResult(data.result);
       `분석 기준 ${t} · ` +
       `FL${r.input.flightLevel} · ` +
       `${r.input.pressureLevelHpa} hPa · ` +
-      `TAS ${r.input.referenceTasKt} kt`;
+      `TAS ${r.input.referenceTasKt} kt · ` +
+      `ETE/Distance/Wind 전체 GPX 기준`;
 
     $('resultCard').scrollIntoView({
       behavior:'smooth',
