@@ -582,14 +582,23 @@
         );
       }
 
-      if(!data.ok){
-        throw new Error(data.error || 'Backend error');
-      }
+if(!data.ok){
+  throw new Error(data.error || 'Backend error');
+}
 
-      lastResult = data.result;
-      lastSelection = {ai,bi};
+if(!data.result || !data.result.summary){
+  console.error('Unexpected backend response:', data);
 
-      renderResult(data.result);
+  throw new Error(
+    '백엔드 응답 형식이 올바르지 않습니다. ' +
+    'Apps Script 최신 버전이 배포되었는지 확인하세요.'
+  );
+}
+
+lastResult = data.result;
+lastSelection = {ai,bi};
+
+renderResult(data.result);
 
       $('runStatus').className = 'status ok';
       $('runStatus').textContent = '계산 완료.';
