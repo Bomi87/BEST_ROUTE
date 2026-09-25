@@ -713,7 +713,7 @@ renderResult(data.result);
 
   $('openSkyVectorBtn').addEventListener('click',()=>{
     try{
-      const routeText = buildFullRouteText();
+      const routeText = buildSkyVectorRouteText();
 
       if(!routeText){
         throw new Error('SkyVector로 보낼 Route가 없습니다.');
@@ -770,6 +770,34 @@ renderResult(data.result);
           !/^OPT\d+$/i.test(p.name)
         ){
           return p.name;
+        }
+
+        return coordinateToken(p.lat,p.lon);
+      })
+      .join(' ');
+  }
+
+
+  // SkyVector의 fpl 파라미터는 마지막 토큰을 목적지 공항으로 해석할 수 있다.
+  // 예: 마지막 waypoint가 TOU이면 Touho Airport(NWWU)로 자동 해석될 수 있음.
+  // 따라서 실제 공항 ICAO(4글자)가 아닌 첫/마지막 waypoint는 좌표로 전달하여
+  // waypoint 위치를 정확히 보존한다. 내부 waypoint 이름은 기존 그대로 유지한다.
+  function buildSkyVectorRouteText(){
+    const points = buildFullPoints();
+
+    return points
+      .map((p,i)=>{
+        const isEdge = i === 0 || i === points.length - 1;
+        const name = String(p.name || '').trim().toUpperCase();
+        const isOptimizedName = /^OPT\d+$/i.test(name);
+        const isIcaoAirport = /^[A-Z]{4}$/.test(name);
+
+        if(isEdge && !isIcaoAirport){
+          return coordinateToken(p.lat,p.lon);
+        }
+
+        if(name && !isOptimizedName){
+          return name;
         }
 
         return coordinateToken(p.lat,p.lon);
