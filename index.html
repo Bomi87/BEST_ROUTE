@@ -175,6 +175,28 @@
       text-align:center
     }
 
+
+    .route-preview{
+      margin-top:16px;
+      padding:14px 16px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0d1426;
+    }
+
+    .route-preview-title{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:8px;
+    }
+
+    .route-preview-text{
+      font-size:13px;
+      line-height:1.6;
+      word-break:break-word;
+      color:var(--text);
+    }
+
     @media(max-width:800px){
       .grid{grid-template-columns:1fr}
       .results{grid-template-columns:1fr}
@@ -267,13 +289,19 @@
 
         <div class="sp"></div>
 
-     
 
         <button id="runBtn" type="button">
           최적 Route 계산
         </button>
 
         <div id="runStatus" class="status muted"></div>
+
+        <div class="route-preview">
+          <div class="route-preview-title">Original Route</div>
+          <div id="originalRoutePreview" class="route-preview-text">
+            GPX를 읽으면 선택 구간 Route가 표시됩니다.
+          </div>
+        </div>
       </section>
     </div>
 
@@ -405,6 +433,31 @@
 
     $('aSel').value = '0';
     $('bSel').value = String(wpts.length-1);
+
+    updateOriginalRoutePreview();
+  }
+
+
+  function updateOriginalRoutePreview(){
+    if(!wpts.length){
+      $('originalRoutePreview').textContent =
+        'GPX를 읽으면 선택 구간 Route가 표시됩니다.';
+      return;
+    }
+
+    const ai = Number($('aSel').value);
+    const bi = Number($('bSel').value);
+
+    if(!Number.isInteger(ai) || !Number.isInteger(bi) || ai > bi){
+      $('originalRoutePreview').textContent = '-';
+      return;
+    }
+
+    $('originalRoutePreview').textContent =
+      wpts
+        .slice(ai,bi+1)
+        .map(p => p.name)
+        .join(' → ');
   }
 
 
@@ -439,8 +492,14 @@
 
     $('parseStatus').textContent = '';
     $('runStatus').textContent = '';
+    $('originalRoutePreview').textContent =
+      'GPX를 읽으면 선택 구간 Route가 표시됩니다.';
     $('resultCard').hidden = true;
   });
+
+
+  $('aSel').addEventListener('change', updateOriginalRoutePreview);
+  $('bSel').addEventListener('change', updateOriginalRoutePreview);
 
 
   $('runBtn').addEventListener('click',async()=>{
