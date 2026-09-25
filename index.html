@@ -168,13 +168,6 @@
       margin-top:14px
     }
 
-    .basis{
-      margin-top:12px;
-      color:var(--muted);
-      font-size:12px;
-      text-align:center
-    }
-
 
     .route-preview{
       margin-top:16px;
@@ -332,15 +325,6 @@
 
       <div class="sp"></div>
 
-      <div class="result-box" id="candidateDiagnosticBox">
-        <div class="result-title">A~B Optimizer Diagnostic</div>
-        <div id="candidateDiagnostic" style="font-size:13px;line-height:1.7;word-break:break-word">
-          -
-        </div>
-      </div>
-
-      <div class="sp"></div>
-
       <div class="result-box">
         <div class="result-title">Optimized Full Route</div>
         <div id="routeInfo" style="font-size:13px;line-height:1.6;word-break:break-word">
@@ -358,7 +342,12 @@
         </button>
       </div>
 
-      <div class="basis" id="basis"></div>
+      <div class="sp"></div>
+
+      <div class="result-box" id="candidateDiagnosticBox">
+        <div class="result-title">A~B Optimizer Diagnostic</div>
+        <div id="candidateDiagnostic">-</div>
+      </div>
     </section>
   </div>
   </div>
@@ -682,18 +671,6 @@ renderResult(data.result);
     $('routeInfo').textContent =
       routeText || '-';
 
-    const t =
-      r.input.analysisTimeUtc
-        .replace('T',' ')
-        .replace(':00:00Z','Z');
-
-    $('basis').textContent =
-      `분석 기준 ${t} · ` +
-      `FL${r.input.flightLevel} · ` +
-      `${r.input.pressureLevelHpa} hPa · ` +
-      `TAS ${r.input.referenceTasKt} kt · ` +
-      `최적화 A~B / 결과 ETE·Distance·Avg Wind 전체 GPX`;
-
     $('resultCard').scrollIntoView({
       behavior:'smooth',
       block:'start'
@@ -721,40 +698,67 @@ renderResult(data.result);
     const deltaSec = Number(cand.deltaEteSecVsOriginal || 0);
     const deltaNm = Number(cand.deltaDistanceNmVsOriginal || 0);
 
-    const originalLine =
-      'Original A~B: ' +
-      formatSeconds(seg.originalEteSec) +
-      ' / ' + Number(seg.originalDistanceNm || 0).toFixed(0) + ' NM' +
-      ' / ' + windLabel(originalWind);
+    const decisionText = cand.selected
+      ? 'Best Candidate 채택'
+      : '기존 Route 유지';
 
-    const candidateLine =
-      'Best Candidate: ' +
-      formatSeconds(cand.eteSec) +
-      ' / ' + Number(cand.distanceNm || 0).toFixed(0) + ' NM' +
-      ' / ' + windLabel(candidateWind);
+    const eteDiffText = cand.selected
+      ? formatSignedDuration(deltaSec)
+      : formatSignedDuration(deltaSec);
 
-    let judgement;
+    el.innerHTML = `
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        margin-top:4px;
+      ">
+        <div style="
+          padding:11px 12px;
+          border:1px solid var(--line);
+          border-radius:10px;
+          background:#0b1222;
+          line-height:1.65;
+          font-size:13px;
+        ">
+          <div style="font-weight:800;margin-bottom:4px;">Original A~B</div>
+          <div>ETE <strong>${formatSeconds(seg.originalEteSec)}</strong></div>
+          <div>Distance <strong>${Number(seg.originalDistanceNm || 0).toFixed(0)} NM</strong></div>
+          <div>Avg Wind <strong>${windLabel(originalWind)}</strong></div>
+        </div>
 
-    if(cand.selected){
-      judgement =
-        '판정: Candidate 채택 · ' +
-        formatSignedDuration(-deltaSec) +
-        ' / 거리 ' + signed0(deltaNm, ' NM');
-    }else{
-      judgement =
-        '판정: 기존 Route 유지 · Candidate가 ' +
-        formatSignedDuration(deltaSec) +
-        ' / 거리 ' + signed0(deltaNm, ' NM');
-    }
+        <div style="
+          padding:11px 12px;
+          border:1px solid var(--line);
+          border-radius:10px;
+          background:#0b1222;
+          line-height:1.65;
+          font-size:13px;
+        ">
+          <div style="font-weight:800;margin-bottom:4px;">Best Candidate</div>
+          <div>ETE <strong>${formatSeconds(cand.eteSec)}</strong></div>
+          <div>Distance <strong>${Number(cand.distanceNm || 0).toFixed(0)} NM</strong></div>
+          <div>Avg Wind <strong>${windLabel(candidateWind)}</strong></div>
+        </div>
+      </div>
 
-    el.textContent =
-      originalLine + '\n' +
-      candidateLine + '\n' +
-      judgement + '\n' +
-      'Candidate points ' + Number(cand.pointCount || 0) +
-      ' / Original points ' + Number(cand.originalPointCount || 0);
+      <div style="
+        margin-top:10px;
+        padding:10px 12px;
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:#0b1222;
+        font-size:13px;
+        line-height:1.65;
+      ">
+        <div><strong>판정</strong> · ${decisionText}</div>
+        <div>ETE 차이 · <strong>${eteDiffText}</strong></div>
+        <div>거리 차이 · <strong>${signed0(deltaNm, ' NM')}</strong></div>
+        <div>Wind · <strong>${windLabel(originalWind)} → ${windLabel(candidateWind)}</strong></div>
+        <div>Points · <strong>${Number(cand.originalPointCount || 0)} → ${Number(cand.pointCount || 0)}</strong></div>
+      </div>
+    `;
   }
-
 
   function windLabel(value){
     const n = Number(value) || 0;
