@@ -297,7 +297,7 @@
         <div id="runStatus" class="status muted"></div>
 
         <div class="route-preview">
-          <div class="route-preview-title">Original Route (전체)</div>
+          <div class="route-preview-title">Original Route</div>
           <div id="originalRoutePreview" class="route-preview-text">
             GPX를 읽으면 전체 Route가 표시됩니다.
           </div>
@@ -312,7 +312,7 @@
 
       <div class="results">
         <div class="result-box">
-          <div class="result-title">기존 (전체 Route)</div>
+          <div class="result-title">기존 · 전체 Route</div>
           <div class="result-time" id="originalTime">-</div>
           <div class="result-wind" id="originalWind">Avg Tailwind -</div>
           <div class="result-wind" id="originalDistance">Distance -</div>
@@ -321,7 +321,7 @@
         <div class="arrow">→</div>
 
         <div class="result-box">
-          <div class="result-title">수정 후 (전체 Route)</div>
+          <div class="result-title">수정 후 · 전체 Route</div>
           <div class="result-time" id="finalTime">-</div>
           <div class="result-wind" id="finalWind">Avg Tailwind -</div>
           <div class="result-wind" id="finalDistance">Distance -</div>
@@ -333,7 +333,7 @@
       <div class="sp"></div>
 
       <div class="result-box">
-        <div class="result-title">Optimized Route (전체)</div>
+        <div class="result-title">Optimized Full Route</div>
         <div id="routeInfo" style="font-size:13px;line-height:1.6;word-break:break-word">
           -
         </div>
@@ -344,8 +344,8 @@
           Route text 복사
         </button>
 
-        <button id="downloadGpxBtn" type="button">
-          Optimized GPX 다운로드
+        <button id="openSkyVectorBtn" type="button">
+          SkyVector에서 보기
         </button>
       </div>
 
@@ -447,8 +447,6 @@
       return;
     }
 
-    // A/B는 최적화할 구간만 지정한다.
-    // Original Route 표시는 항상 입력 GPX 전체 Route를 보여준다.
     $('originalRoutePreview').textContent =
       wpts
         .map(p => p.name)
@@ -530,9 +528,13 @@
         throw new Error('Flight Level을 확인하세요.');
       }
 
-      // v21: A~B는 최적화 대상 범위만 지정한다.
-      // 백엔드에는 GPX 전체 route를 보내고,
-      // ETE / Distance / Avg Tailwind는 전체 구간 기준으로 계산한다.
+      const originalRoute =
+        wpts.slice(ai,bi+1).map(p=>({
+          name:p.name,
+          lat:p.lat,
+          lon:p.lon
+        }));
+
       const fullRoute =
         wpts.map(p=>({
           name:p.name,
@@ -544,6 +546,7 @@
         action:'optimize',
         analysisDate,
         flightLevel:fl,
+        originalRoute,
         fullRoute,
         aIndex:ai,
         bIndex:bi
@@ -632,23 +635,6 @@ renderResult(data.result);
       'Avg Tailwind ' +
       signed(s.finalAvgTailwindKt,' kt');
 
-    $('originalDistance').textContent =
-      'Distance ' +
-      Number(s.originalDistanceNm || 0).toFixed(0) +
-      ' NM';
-
-    const distDelta =
-      Number(s.finalDistanceNm || 0) -
-      Number(s.originalDistanceNm || 0);
-
-    $('finalDistance').textContent =
-      'Distance ' +
-      Number(s.finalDistanceNm || 0).toFixed(0) +
-      ' NM (' +
-      (distDelta >= 0 ? '+' : '') +
-      distDelta.toFixed(0) +
-      ' NM)';
-
     if(s.changed && s.timeSavingSec > 0){
       $('saving').textContent =
         formatSeconds(s.timeSavingSec) + ' 단축';
@@ -660,12 +646,25 @@ renderResult(data.result);
       $('saving').className = 'saving muted';
     }
 
-    // 화면의 Optimized Route도 A~B segment만이 아니라
-    // A 이전 + optimized A~B + B 이후를 합친 전체 Route로 표시한다.
-    const fullPoints = buildFullPoints();
+    $('originalDistance').textContent =
+      'Distance ' + Number(s.originalDistanceNm || 0).toFixed(0) + ' NM';
+
+    const deltaNm =
+      Number(s.finalDistanceNm || 0) - Number(s.originalDistanceNm || 0);
+
+    $('finalDistance').textContent =
+      'Distance ' + Number(s.finalDistanceNm || 0).toFixed(0) + ' NM' +
+      (Math.abs(deltaNm) >= 0.5
+        ? ' (' + (deltaNm >= 0 ? '+' : '') + deltaNm.toFixed(0) + ' NM)'
+        : '');
+
+    const fullRoute =
+      Array.isArray(r.fullFinalRoute) && r.fullFinalRoute.length
+        ? r.fullFinalRoute
+        : buildFullPoints();
 
     const routeText =
-      fullPoints
+      fullRoute
         .map(p => {
           if (p.name && !/^OPT\d+$/i.test(p.name)) {
             return p.name;
@@ -686,8 +685,7 @@ renderResult(data.result);
       `분석 기준 ${t} · ` +
       `FL${r.input.flightLevel} · ` +
       `${r.input.pressureLevelHpa} hPa · ` +
-      `TAS ${r.input.referenceTasKt} kt · ` +
-      `ETE/Distance/Wind 전체 GPX 기준`;
+      `TAS ${r.input.referenceTasKt} kt`;
 
     $('resultCard').scrollIntoView({
       behavior:'smooth',
@@ -717,35 +715,38 @@ renderResult(data.result);
   });
 
 
-  $('downloadGpxBtn').addEventListener('click',()=>{
+  $('openSkyVectorBtn').addEventListener('click',()=>{
     try{
-      const xml = buildFullGpx();
+      const routeText = buildFullRouteText();
 
-      const blob =
-        new Blob(
-          [xml],
-          {type:'application/gpx+xml;charset=utf-8'}
-        );
+      if(!routeText){
+        throw new Error('SkyVector로 보낼 Route가 없습니다.');
+      }
 
-      const url = URL.createObjectURL(blob);
+      const skyVectorUrl =
+        'https://skyvector.com/?fpl=' +
+        encodeURIComponent(routeText);
 
-      const a = document.createElement('a');
-
-      a.href = url;
-      a.download = 'wind_optimized_route.gpx';
-
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      setTimeout(
-        ()=>URL.revokeObjectURL(url),
-        1000
+      const win = window.open(
+        skyVectorUrl,
+        '_blank',
+        'noopener,noreferrer'
       );
+
+      if(!win){
+        throw new Error(
+          '새 창이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도하세요.'
+        );
+      }
+
+      $('runStatus').className = 'status ok';
+      $('runStatus').textContent =
+        '수정된 전체 Route를 SkyVector에서 열었습니다.';
 
     }catch(err){
       $('runStatus').className = 'status err';
-      $('runStatus').textContent = err.message;
+      $('runStatus').textContent =
+        'SkyVector 열기 실패: ' + err.message;
     }
   });
 
@@ -753,6 +754,13 @@ renderResult(data.result);
   function buildFullPoints(){
     if(!lastResult || !lastSelection){
       throw new Error('먼저 최적 Route를 계산하세요.');
+    }
+
+    if(
+      Array.isArray(lastResult.fullFinalRoute) &&
+      lastResult.fullFinalRoute.length
+    ){
+      return lastResult.fullFinalRoute;
     }
 
     const {ai,bi} = lastSelection;
