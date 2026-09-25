@@ -711,41 +711,34 @@ renderResult(data.result);
   });
 
 
-  $('openSkyVectorBtn').addEventListener('click',()=>{
-    try{
-      const routeText = buildSkyVectorRouteText();
+$('openSkyVectorBtn').addEventListener('click', () => {
+  try {
+    const routeText = buildSkyVectorRouteText();
 
-      if(!routeText){
-        throw new Error('SkyVector로 보낼 Route가 없습니다.');
-      }
-
-      const skyVectorUrl =
-        'https://skyvector.com/?fpl=' +
-        encodeURIComponent(routeText);
-
-      const win = window.open(
-        skyVectorUrl,
-        '_blank',
-        'noopener,noreferrer'
-      );
-
-      if(!win){
-        throw new Error(
-          '새 창이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도하세요.'
-        );
-      }
-
-      $('runStatus').className = 'status ok';
-      $('runStatus').textContent =
-        '수정된 전체 Route를 SkyVector에서 열었습니다.';
-
-    }catch(err){
-      $('runStatus').className = 'status err';
-      $('runStatus').textContent =
-        'SkyVector 열기 실패: ' + err.message;
+    if (!routeText) {
+      throw new Error('먼저 최적 Route를 계산하세요.');
     }
-  });
 
+    const skyVectorUrl =
+      'https://skyvector.com/?chart=304&zoom=4&fpl=' +
+      encodeURIComponent(routeText);
+
+    window.open(
+      skyVectorUrl,
+      '_blank',
+      'noopener,noreferrer'
+    );
+
+    $('runStatus').className = 'status ok';
+    $('runStatus').textContent =
+      'SkyVector를 새 탭에서 열었습니다.';
+
+  } catch (err) {
+    $('runStatus').className = 'status err';
+    $('runStatus').textContent =
+      'SkyVector 열기 실패: ' + err.message;
+  }
+});
 
   function buildFullPoints(){
     if(!lastResult || !lastSelection){
