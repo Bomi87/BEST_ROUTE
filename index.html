@@ -635,17 +635,6 @@ renderResult(data.result);
       'Avg Tailwind ' +
       signed(s.finalAvgTailwindKt,' kt');
 
-    if(s.changed && s.timeSavingSec > 0){
-      $('saving').textContent =
-        formatSeconds(s.timeSavingSec) + ' 단축';
-
-      $('saving').className = 'saving ok';
-
-    }else{
-      $('saving').textContent = '변화 없음';
-      $('saving').className = 'saving muted';
-    }
-
     $('originalDistance').textContent =
       'Distance ' + Number(s.originalDistanceNm || 0).toFixed(0) + ' NM';
 
@@ -658,13 +647,19 @@ renderResult(data.result);
         ? ' (' + (deltaNm >= 0 ? '+' : '') + deltaNm.toFixed(0) + ' NM)'
         : '');
 
-    const fullRoute =
-      Array.isArray(r.fullFinalRoute) && r.fullFinalRoute.length
-        ? r.fullFinalRoute
-        : buildFullPoints();
+    if(s.changed && s.timeSavingSec > 0){
+      $('saving').textContent =
+        formatSeconds(s.timeSavingSec) + ' 단축';
+
+      $('saving').className = 'saving ok';
+
+    }else{
+      $('saving').textContent = '변화 없음';
+      $('saving').className = 'saving muted';
+    }
 
     const routeText =
-      fullRoute
+      buildFullPoints()
         .map(p => {
           if (p.name && !/^OPT\d+$/i.test(p.name)) {
             return p.name;
@@ -685,7 +680,8 @@ renderResult(data.result);
       `분석 기준 ${t} · ` +
       `FL${r.input.flightLevel} · ` +
       `${r.input.pressureLevelHpa} hPa · ` +
-      `TAS ${r.input.referenceTasKt} kt`;
+      `TAS ${r.input.referenceTasKt} kt · ` +
+      `최적화 A~B / 결과 ETE·Distance·Avg Wind 전체 GPX`;
 
     $('resultCard').scrollIntoView({
       behavior:'smooth',
@@ -754,13 +750,6 @@ renderResult(data.result);
   function buildFullPoints(){
     if(!lastResult || !lastSelection){
       throw new Error('먼저 최적 Route를 계산하세요.');
-    }
-
-    if(
-      Array.isArray(lastResult.fullFinalRoute) &&
-      lastResult.fullFinalRoute.length
-    ){
-      return lastResult.fullFinalRoute;
     }
 
     const {ai,bi} = lastSelection;
