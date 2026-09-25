@@ -315,6 +315,7 @@
           <div class="result-title">기존</div>
           <div class="result-time" id="originalTime">-</div>
           <div class="result-wind" id="originalWind">Avg Tailwind -</div>
+          <div class="result-wind" id="originalDistance">Distance -</div>
         </div>
 
         <div class="arrow">→</div>
@@ -323,6 +324,7 @@
           <div class="result-title">수정 후</div>
           <div class="result-time" id="finalTime">-</div>
           <div class="result-wind" id="finalWind">Avg Tailwind -</div>
+          <div class="result-wind" id="finalDistance">Distance -</div>
         </div>
       </div>
 
@@ -632,6 +634,23 @@ renderResult(data.result);
       'Avg Tailwind ' +
       signed(s.finalAvgTailwindKt,' kt');
 
+    $('originalDistance').textContent =
+      'Distance ' +
+      Number(s.originalDistanceNm || 0).toFixed(0) +
+      ' NM';
+
+    const distDelta =
+      Number(s.finalDistanceNm || 0) -
+      Number(s.originalDistanceNm || 0);
+
+    $('finalDistance').textContent =
+      'Distance ' +
+      Number(s.finalDistanceNm || 0).toFixed(0) +
+      ' NM (' +
+      (distDelta >= 0 ? '+' : '') +
+      distDelta.toFixed(0) +
+      ' NM)';
+
     if(s.changed && s.timeSavingSec > 0){
       $('saving').textContent =
         formatSeconds(s.timeSavingSec) + ' 단축';
@@ -661,11 +680,15 @@ renderResult(data.result);
         .replace('T',' ')
         .replace(':00:00Z','Z');
 
+    const extraLimit =
+      Number(s.allowedExtraDistanceNm || 0).toFixed(0);
+
     $('basis').textContent =
       `분석 기준 ${t} · ` +
       `FL${r.input.flightLevel} · ` +
       `${r.input.pressureLevelHpa} hPa · ` +
-      `TAS ${r.input.referenceTasKt} kt`;
+      `TAS ${r.input.referenceTasKt} kt · ` +
+      `최대 추가거리 +${extraLimit} NM`;
 
     $('resultCard').scrollIntoView({
       behavior:'smooth',
