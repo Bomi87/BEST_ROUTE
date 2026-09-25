@@ -332,6 +332,15 @@
 
       <div class="sp"></div>
 
+      <div class="result-box" id="candidateDiagnosticBox">
+        <div class="result-title">A~B Optimizer Diagnostic</div>
+        <div id="candidateDiagnostic" style="font-size:13px;line-height:1.7;word-break:break-word">
+          -
+        </div>
+      </div>
+
+      <div class="sp"></div>
+
       <div class="result-box">
         <div class="result-title">Optimized Full Route</div>
         <div id="routeInfo" style="font-size:13px;line-height:1.6;word-break:break-word">
@@ -658,6 +667,8 @@ renderResult(data.result);
       $('saving').className = 'saving muted';
     }
 
+    renderCandidateDiagnostic(r);
+
     const routeText =
       buildFullPoints()
         .map(p => {
@@ -687,6 +698,93 @@ renderResult(data.result);
       behavior:'smooth',
       block:'start'
     });
+  }
+
+
+  function renderCandidateDiagnostic(r){
+    const seg = r && r.segmentSummary;
+    const cand = r && r.candidateSummary;
+    const el = $('candidateDiagnostic');
+
+    if(!el){
+      return;
+    }
+
+    if(!seg || !cand){
+      el.textContent =
+        '진단 정보가 없습니다. 최신 Diagnostic 백엔드가 배포되었는지 확인하세요.';
+      return;
+    }
+
+    const originalWind = Number(seg.originalAvgTailwindKt || 0);
+    const candidateWind = Number(cand.avgTailwindKt || 0);
+    const deltaSec = Number(cand.deltaEteSecVsOriginal || 0);
+    const deltaNm = Number(cand.deltaDistanceNmVsOriginal || 0);
+
+    const originalLine =
+      'Original A~B: ' +
+      formatSeconds(seg.originalEteSec) +
+      ' / ' + Number(seg.originalDistanceNm || 0).toFixed(0) + ' NM' +
+      ' / ' + windLabel(originalWind);
+
+    const candidateLine =
+      'Best Candidate: ' +
+      formatSeconds(cand.eteSec) +
+      ' / ' + Number(cand.distanceNm || 0).toFixed(0) + ' NM' +
+      ' / ' + windLabel(candidateWind);
+
+    let judgement;
+
+    if(cand.selected){
+      judgement =
+        '판정: Candidate 채택 · ' +
+        formatSignedDuration(-deltaSec) +
+        ' / 거리 ' + signed0(deltaNm, ' NM');
+    }else{
+      judgement =
+        '판정: 기존 Route 유지 · Candidate가 ' +
+        formatSignedDuration(deltaSec) +
+        ' / 거리 ' + signed0(deltaNm, ' NM');
+    }
+
+    el.textContent =
+      originalLine + '\n' +
+      candidateLine + '\n' +
+      judgement + '\n' +
+      'Candidate points ' + Number(cand.pointCount || 0) +
+      ' / Original points ' + Number(cand.originalPointCount || 0);
+  }
+
+
+  function windLabel(value){
+    const n = Number(value) || 0;
+
+    if(n < 0){
+      return 'H' + Math.abs(n).toFixed(1) + ' kt';
+    }
+
+    return 'T' + n.toFixed(1) + ' kt';
+  }
+
+
+  function formatSignedDuration(sec){
+    const n = Math.round(Number(sec) || 0);
+    const abs = Math.abs(n);
+    const h = Math.floor(abs / 3600);
+    const m = Math.floor((abs % 3600) / 60);
+    const s = abs % 60;
+
+    const body = h > 0
+      ? h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0')
+      : m + 'm ' + s + 's';
+
+    return (n > 0 ? '+' : n < 0 ? '-' : '±') + body;
+  }
+
+
+  function signed0(value,suffix=''){
+    const n = Number(value) || 0;
+    return (n >= 0 ? '+' : '') + n.toFixed(0) + suffix;
   }
 
 
