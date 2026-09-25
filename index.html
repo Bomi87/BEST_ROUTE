@@ -715,23 +715,27 @@ $('openSkyVectorBtn').addEventListener('click', () => {
   try {
     const points = buildFullPoints();
     const routeText = buildSkyVectorRouteText();
-    const center = getRouteCenter(points);
+    const view = getRouteView(points);
 
     if (!routeText) {
       throw new Error('먼저 최적 Route를 계산하세요.');
     }
 
-    let skyVectorUrl =
-      'https://skyvector.com/?chart=304&zoom=4&fpl=' +
-      encodeURIComponent(routeText);
+    // SkyVector chart=304에서는 숫자가 커질수록 더 넓은 범위를 보여준다.
+    // Route 전체 범위를 계산해서 중심 + zoom을 자동 지정한다.
+    const zoom = view ? view.zoom : 10;
 
-    // 수정된 전체 Route의 중앙을 SkyVector 지도 중심으로 지정
-    if (center) {
+    let skyVectorUrl =
+      'https://skyvector.com/?chart=304' +
+      '&zoom=' + zoom +
+      '&fpl=' + encodeURIComponent(routeText);
+
+    if (view) {
       skyVectorUrl +=
         '&ll=' +
-        center.lat.toFixed(4) +
+        view.lat.toFixed(4) +
         ',' +
-        center.lon.toFixed(4);
+        view.lon.toFixed(4);
     }
 
     window.open(
@@ -809,18 +813,18 @@ $('openSkyVectorBtn').addEventListener('click', () => {
       .join(' ');
   }
 
-function getRouteCenter(points){
+function getRouteView(points){
   if(!Array.isArray(points) || !points.length){
     return null;
   }
 
   let minLat = Infinity;
   let maxLat = -Infinity;
-
   let minLon = Infinity;
   let maxLon = -Infinity;
 
-  // 날짜변경선을 넘는 태평양 Route 대응
+  // 날짜변경선을 넘는 태평양 Route 대응.
+  // 첫 waypoint longitude를 기준으로 longitude를 연속 좌표로 펼친다.
   const refLon = Number(points[0].lon);
 
   points.forEach(p => {
@@ -831,18 +835,11 @@ function getRouteCenter(points){
       return;
     }
 
-    // 첫 waypoint longitude 기준으로 연속 longitude로 변환
-    while(lon - refLon > 180){
-      lon -= 360;
-    }
-
-    while(lon - refLon < -180){
-      lon += 360;
-    }
+    while(lon - refLon > 180) lon -= 360;
+    while(lon - refLon < -180) lon += 360;
 
     minLat = Math.min(minLat, lat);
     maxLat = Math.max(maxLat, lat);
-
     minLon = Math.min(minLon, lon);
     maxLon = Math.max(maxLon, lon);
   });
@@ -859,20 +856,48 @@ function getRouteCenter(points){
   const lat = (minLat + maxLat) / 2;
   let lon = (minLon + maxLon) / 2;
 
-  // 다시 -180 ~ +180 범위로 복원
-  while(lon > 180){
-    lon -= 360;
-  }
+  while(lon > 180) lon -= 360;
+  while(lon < -180) lon += 360;
 
-  while(lon < -180){
-    lon += 360;
+  const latSpan = maxLat - minLat;
+  const lonSpan = maxLon - minLon;
+
+  // 위도가 높을수록 같은 경도 차이의 실제 동서 폭은 줄어드므로 보정.
+  const lonSpanAdjusted =
+    lonSpan * Math.max(0.35, Math.cos(lat * Math.PI / 180));
+
+  // 화면 가장자리에 route가 붙지 않도록 약 25% 여유를 둔다.
+  const span = Math.max(latSpan, lonSpanAdjusted) * 1.25;
+
+  // SkyVector chart=304는 zoom 숫자가 커질수록 더 넓게 보인다.
+  // 장거리/태평양 횡단은 10~12 수준으로 자동 zoom-out.
+  let zoom;
+
+  if(span >= 80){
+    zoom = 12;
+  }else if(span >= 55){
+    zoom = 10;
+  }else if(span >= 35){
+    zoom = 8;
+  }else if(span >= 22){
+    zoom = 6;
+  }else if(span >= 12){
+    zoom = 4;
+  }else if(span >= 6){
+    zoom = 2;
+  }else{
+    zoom = 1;
   }
 
   return {
     lat,
-    lon
+    lon,
+    zoom,
+    latSpan,
+    lonSpan
   };
 }
+
   function buildFullGpx(){
     const points = buildFullPoints();
 
