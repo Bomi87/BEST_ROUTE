@@ -713,15 +713,26 @@ renderResult(data.result);
 
 $('openSkyVectorBtn').addEventListener('click', () => {
   try {
+    const points = buildFullPoints();
     const routeText = buildSkyVectorRouteText();
+    const center = getRouteCenter(points);
 
     if (!routeText) {
       throw new Error('먼저 최적 Route를 계산하세요.');
     }
 
-    const skyVectorUrl =
+    let skyVectorUrl =
       'https://skyvector.com/?chart=304&zoom=4&fpl=' +
       encodeURIComponent(routeText);
+
+    // 수정된 전체 Route의 중앙을 SkyVector 지도 중심으로 지정
+    if (center) {
+      skyVectorUrl +=
+        '&ll=' +
+        center.lat.toFixed(4) +
+        ',' +
+        center.lon.toFixed(4);
+    }
 
     window.open(
       skyVectorUrl,
@@ -798,7 +809,70 @@ $('openSkyVectorBtn').addEventListener('click', () => {
       .join(' ');
   }
 
+function getRouteCenter(points){
+  if(!Array.isArray(points) || !points.length){
+    return null;
+  }
 
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+
+  // 날짜변경선을 넘는 태평양 Route 대응
+  const refLon = Number(points[0].lon);
+
+  points.forEach(p => {
+    const lat = Number(p.lat);
+    let lon = Number(p.lon);
+
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+      return;
+    }
+
+    // 첫 waypoint longitude 기준으로 연속 longitude로 변환
+    while(lon - refLon > 180){
+      lon -= 360;
+    }
+
+    while(lon - refLon < -180){
+      lon += 360;
+    }
+
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+
+    minLon = Math.min(minLon, lon);
+    maxLon = Math.max(maxLon, lon);
+  });
+
+  if(
+    !Number.isFinite(minLat) ||
+    !Number.isFinite(maxLat) ||
+    !Number.isFinite(minLon) ||
+    !Number.isFinite(maxLon)
+  ){
+    return null;
+  }
+
+  const lat = (minLat + maxLat) / 2;
+  let lon = (minLon + maxLon) / 2;
+
+  // 다시 -180 ~ +180 범위로 복원
+  while(lon > 180){
+    lon -= 360;
+  }
+
+  while(lon < -180){
+    lon += 360;
+  }
+
+  return {
+    lat,
+    lon
+  };
+}
   function buildFullGpx(){
     const points = buildFullPoints();
 
