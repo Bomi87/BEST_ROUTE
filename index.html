@@ -1,145 +1,943 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wind Optimal Route v25</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wind Optimal Route</title>
+
   <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a2d;
+      --line:#273454;
+      --text:#eef3ff;
+      --muted:#9fb0d0;
+      --accent:#2f78db;
+      --good:#67d391;
+      --bad:#ff8c8c;
+    }
+
     *{box-sizing:border-box}
-    body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#1f2937}
-    .wrap{max-width:1100px;margin:0 auto;padding:24px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;margin-bottom:16px}
-    h1{font-size:24px;margin:0 0 6px}
-    .sub{font-size:13px;color:#6b7280;margin-bottom:18px}
-    textarea{width:100%;min-height:420px;border:1px solid #d1d5db;border-radius:10px;padding:14px;font-family:Consolas,monospace;font-size:12px;resize:vertical}
-    button{border:0;border-radius:9px;padding:12px 18px;font-weight:700;cursor:pointer}
-    #runBtn{background:#111827;color:#fff}
-    #runBtn:disabled{opacity:.45;cursor:not-allowed}
-    .status{margin-left:12px;font-size:13px;color:#6b7280}
-    .row{display:flex;align-items:center;margin-top:14px}
-    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
-    .metric{border:1px solid #e5e7eb;border-radius:10px;padding:12px}
-    .metric .k{font-size:11px;color:#6b7280}
-    .metric .v{font-size:18px;font-weight:700;margin-top:4px}
-    pre{white-space:pre-wrap;word-break:break-word;background:#f8fafc;border-radius:10px;padding:14px;font-size:12px;max-height:420px;overflow:auto}
-    .hidden{display:none}
-    @media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.wrap{padding:12px}}
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+    }
+
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding:24px
+    }
+
+    h1{margin:0 0 6px;font-size:25px}
+    h2{margin:0 0 14px;font-size:17px}
+
+    .muted{
+      color:var(--muted);
+      font-size:13px
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:18px;
+      margin-top:18px
+    }
+
+    .card{
+      padding:16px;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:16px
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px
+    }
+
+    .sp{height:12px}
+
+    label{
+      display:block;
+      margin-bottom:6px;
+      color:var(--muted);
+      font-size:12px
+    }
+
+    textarea,select,input,button{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#0d1426;
+      color:var(--text);
+      padding:10px;
+      font:inherit
+    }
+
+    textarea{
+      min-height:360px;
+      resize:vertical;
+      font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+      font-size:12px;
+      line-height:1.45
+    }
+
+    button{
+      cursor:pointer;
+      background:#1d5fbf;
+      border-color:var(--accent);
+      font-weight:700
+    }
+
+    button.secondary{
+      background:#18233d;
+      border-color:var(--line)
+    }
+
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed
+    }
+
+    .status{
+      margin-top:12px;
+      font-size:13px;
+      white-space:pre-wrap
+    }
+
+    .ok{color:var(--good)}
+    .err{color:var(--bad)}
+
+    .results{
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      gap:16px;
+      align-items:stretch
+    }
+
+    .result-box{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#0d1426;
+      padding:16px
+    }
+
+    .result-title{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:8px
+    }
+
+    .result-time{
+      font-size:28px;
+      font-weight:800
+    }
+
+    .result-wind{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px
+    }
+
+    .arrow{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:var(--muted);
+      font-size:24px
+    }
+
+    .saving{
+      margin-top:14px;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      text-align:center;
+      font-weight:800
+    }
+
+    .output-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:14px
+    }
+
+    .basis{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:12px;
+      text-align:center
+    }
+
+
+    .route-preview{
+      margin-top:16px;
+      padding:14px 16px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0d1426;
+    }
+
+    .route-preview-title{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:8px;
+    }
+
+    .route-preview-text{
+      font-size:13px;
+      line-height:1.6;
+      word-break:break-word;
+      color:var(--text);
+    }
+
+    @media(max-width:800px){
+      .grid{grid-template-columns:1fr}
+      .results{grid-template-columns:1fr}
+      .arrow{transform:rotate(90deg)}
+    }
+
+    @media(max-width:600px){
+      .row,.output-actions{grid-template-columns:1fr}
+    }
   </style>
 </head>
+
 <body>
-<div class="wrap">
-  <div class="card">
-    <h1>Wind Optimal Route</h1>
-    <div class="sub">PPS Flight Plan 전체를 그대로 붙여넣으세요. PPS 계획 FL/TAS를 유지하고, 후보 Route 자체 ETA에 맞춘 4D GFS(U/V 시간·고도 보간)로 oceanic Route를 최적화합니다.</div>
-    <textarea id="planText" placeholder="PPS Flight Plan 전체 내용을 Ctrl+A → Ctrl+C 후 여기에 붙여넣기"></textarea>
-    <div class="row">
-      <button id="runBtn" onclick="runOptimize()">OPTIMIZE</button>
-      <span class="status" id="status"></span>
-    </div>
+  <div id="authScreen" style="
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:#0b1020;
+    color:#eef3ff;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  ">
+    승인 확인 중...
   </div>
 
-  <div class="card hidden" id="resultCard">
-    <div id="title" style="font-weight:700"></div>
-    <div class="grid">
-      <div class="metric"><div class="k">PPS PLAN ETE</div><div class="v" id="ppsEte">-</div></div>
-      <div class="metric"><div class="k">MODEL PPS ROUTE</div><div class="v" id="origEte">-</div></div>
-      <div class="metric"><div class="k">OPT ETE</div><div class="v" id="optEte">-</div></div>
-      <div class="metric"><div class="k">ETE 차이</div><div class="v" id="diffEte">-</div></div>
-      <div class="metric"><div class="k">CALIBRATION ERROR</div><div class="v" id="calError">-</div></div>
-      <div class="metric"><div class="k">PACOTS Crossings</div><div class="v" id="crossings">-</div></div>
+  <div id="appRoot" style="display:none;">
+  <div class="wrap">
+    <h1>Wind Optimal Route</h1>
+    <div class="muted">
+      GPX RAW → A/B 선택 → GFS 상층풍 + 거리 기준 최소 ETE route
     </div>
-    <h3>Optimized Route</h3>
-    <pre id="routeOut"></pre>
-    <h3>상세 JSON</h3>
-    <pre id="jsonOut"></pre>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1. GPX RAW 붙여넣기</h2>
+
+        <textarea
+          id="gpx"
+          placeholder="<?xml version=&quot;1.0&quot; ...> ... </gpx>"
+        ></textarea>
+
+        <div class="sp"></div>
+
+        <div class="row">
+          <button id="parseBtn" class="secondary" type="button">
+            GPX 읽기
+          </button>
+
+          <button id="clearBtn" class="secondary" type="button">
+            초기화
+          </button>
+        </div>
+
+        <div id="parseStatus" class="status muted"></div>
+      </section>
+
+      <section class="card">
+        <h2>2. 분석 조건</h2>
+
+        <div class="row">
+          <div>
+            <label for="aSel">A waypoint</label>
+            <select id="aSel">
+              <option>GPX를 먼저 읽어주세요</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="bSel">B waypoint</label>
+            <select id="bSel">
+              <option>GPX를 먼저 읽어주세요</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sp"></div>
+
+        <div class="row">
+          <div>
+            <label for="analysisDate">Analysis Date (UTC)</label>
+            <input id="analysisDate" type="date">
+          </div>
+
+          <div>
+            <label for="fl">Flight Level</label>
+            <input id="fl" type="number" value="390" min="100" max="500" step="10">
+          </div>
+        </div>
+
+        <div class="sp"></div>
+
+
+        <button id="runBtn" type="button">
+          최적 Route 계산
+        </button>
+
+        <div id="runStatus" class="status muted"></div>
+
+        <div class="route-preview">
+          <div class="route-preview-title">Original Route (전체)</div>
+          <div id="originalRoutePreview" class="route-preview-text">
+            GPX를 읽으면 전체 Route가 표시됩니다.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="sp"></div>
+
+    <section class="card" id="resultCard" hidden>
+      <h2>3. 결과</h2>
+
+      <div class="results">
+        <div class="result-box">
+          <div class="result-title">기존 (전체 Route)</div>
+          <div class="result-time" id="originalTime">-</div>
+          <div class="result-wind" id="originalWind">Avg Tailwind -</div>
+          <div class="result-wind" id="originalDistance">Distance -</div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <div class="result-box">
+          <div class="result-title">수정 후 (전체 Route)</div>
+          <div class="result-time" id="finalTime">-</div>
+          <div class="result-wind" id="finalWind">Avg Tailwind -</div>
+          <div class="result-wind" id="finalDistance">Distance -</div>
+        </div>
+      </div>
+
+      <div class="saving" id="saving">-</div>
+
+      <div class="sp"></div>
+
+      <div class="result-box">
+        <div class="result-title">Optimized Route (전체)</div>
+        <div id="routeInfo" style="font-size:13px;line-height:1.6;word-break:break-word">
+          -
+        </div>
+      </div>
+
+      <div class="output-actions">
+        <button id="copyRouteBtn" type="button" class="secondary">
+          Route text 복사
+        </button>
+
+        <button id="downloadGpxBtn" type="button">
+          Optimized GPX 다운로드
+        </button>
+      </div>
+
+      <div class="basis" id="basis"></div>
+    </section>
   </div>
-</div>
+  </div>
 
 <script>
-/*
- * 반드시 본인의 Apps Script Web App /exec URL로 변경
- */
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzG5kwQ5PYMXFhIWoRESTX3fpkMeQcaegmykYiLHKSJXS3CpG74qRePkcFSIzD88Jwo/exec';
+(() => {
+  'use strict';
 
-async function runOptimize(){
-  const text = document.getElementById('planText').value.trim();
-  if(!text){ alert('PPS Flight Plan 전체 내용을 붙여넣어 주세요.'); return; }
-  if(BACKEND_URL.includes('PASTE_YOUR')){
-    alert('index.html의 BACKEND_URL을 Apps Script /exec URL로 변경해 주세요.');
-    return;
+  const BACKEND_URL =
+    'https://script.google.com/macros/s/AKfycbzG5kwQ5PYMXFhIWoRESTX3fpkMeQcaegmykYiLHKSJXS3CpG74qRePkcFSIzD88Jwo/exec';
+
+  const $ = id => document.getElementById(id);
+
+  let wpts = [];
+  let lastResult = null;
+  let lastSelection = null;
+  let WIND_APP_STARTED = false;
+
+
+  function utcTodayString(){
+    const d = new Date();
+
+    return [
+      d.getUTCFullYear(),
+      String(d.getUTCMonth()+1).padStart(2,'0'),
+      String(d.getUTCDate()).padStart(2,'0')
+    ].join('-');
   }
 
-  const btn = document.getElementById('runBtn');
-  const status = document.getElementById('status');
-  btn.disabled = true;
-  status.textContent = 'Flight Plan 분석 및 GFS 조회 중...';
 
-  try{
-    const r = await fetch(BACKEND_URL,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'optimizePlan',planText:text})
+
+  function parseGpx(xmlText){
+    const doc =
+      new DOMParser().parseFromString(
+        xmlText,
+        'application/xml'
+      );
+
+    if(doc.querySelector('parsererror')){
+      throw new Error('GPX XML 형식이 올바르지 않습니다.');
+    }
+
+    const pts =
+      [...doc.getElementsByTagNameNS('*','rtept')];
+
+    if(!pts.length){
+      throw new Error('GPX에서 rtept를 찾지 못했습니다.');
+    }
+
+    return pts.map((el,i)=>{
+      const nameEl =
+        [...el.children].find(
+          x => x.localName === 'name'
+        );
+
+      const lat = Number(el.getAttribute('lat'));
+      const lon = Number(el.getAttribute('lon'));
+
+      if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+        throw new Error('잘못된 waypoint 좌표가 있습니다.');
+      }
+
+      return {
+        name:(nameEl?.textContent || `WP${i+1}`).trim(),
+        lat,
+        lon
+      };
     });
-
-    const raw = await r.text();
-    let data;
-    try{ data = JSON.parse(raw); }
-    catch(e){ throw new Error('백엔드가 JSON이 아닌 응답을 반환했습니다.\\n' + raw.slice(0,500)); }
-
-    if(!data.ok) throw new Error(data.error || 'Unknown backend error');
-    renderResult(data.result);
-    status.textContent = '완료';
-  }catch(err){
-    console.error(err);
-    status.textContent = '오류';
-    alert(err.message || String(err));
-  }finally{
-    btn.disabled = false;
   }
+
+
+  function fillSelectors(){
+    const html =
+      wpts.map((p,i)=>(
+        `<option value="${i}">` +
+        `${escapeHtml(p.name)} ` +
+        `(${p.lat.toFixed(4)}, ${p.lon.toFixed(4)})` +
+        `</option>`
+      )).join('');
+
+    $('aSel').innerHTML = html;
+    $('bSel').innerHTML = html;
+
+    $('aSel').value = '0';
+    $('bSel').value = String(wpts.length-1);
+
+    updateOriginalRoutePreview();
+  }
+
+
+  function updateOriginalRoutePreview(){
+    if(!wpts.length){
+      $('originalRoutePreview').textContent =
+        'GPX를 읽으면 전체 Route가 표시됩니다.';
+      return;
+    }
+
+    // A/B는 최적화할 구간만 지정한다.
+    // Original Route 표시는 항상 입력 GPX 전체 Route를 보여준다.
+    $('originalRoutePreview').textContent =
+      wpts
+        .map(p => p.name)
+        .join(' → ');
+  }
+
+
+  $('parseBtn').addEventListener('click',()=>{
+    try{
+      wpts = parseGpx($('gpx').value);
+      fillSelectors();
+
+      $('parseStatus').className = 'status ok';
+      $('parseStatus').textContent =
+        `${wpts.length}개 waypoint 추출 완료: ` +
+        `${wpts[0].name} → ${wpts[wpts.length-1].name}`;
+
+    }catch(err){
+      $('parseStatus').className = 'status err';
+      $('parseStatus').textContent = err.message;
+    }
+  });
+
+
+  $('clearBtn').addEventListener('click',()=>{
+    $('gpx').value = '';
+    wpts = [];
+    lastResult = null;
+    lastSelection = null;
+
+    $('aSel').innerHTML =
+      '<option>GPX를 먼저 읽어주세요</option>';
+
+    $('bSel').innerHTML =
+      '<option>GPX를 먼저 읽어주세요</option>';
+
+    $('parseStatus').textContent = '';
+    $('runStatus').textContent = '';
+    $('originalRoutePreview').textContent =
+      'GPX를 읽으면 전체 Route가 표시됩니다.';
+    $('resultCard').hidden = true;
+  });
+
+
+  $('aSel').addEventListener('change', updateOriginalRoutePreview);
+  $('bSel').addEventListener('change', updateOriginalRoutePreview);
+
+
+  $('runBtn').addEventListener('click',async()=>{
+    const btn = $('runBtn');
+
+    try{
+      if(!wpts.length){
+        throw new Error('먼저 GPX를 읽어주세요.');
+      }
+
+      const ai = Number($('aSel').value);
+      const bi = Number($('bSel').value);
+
+      if(!Number.isInteger(ai) || !Number.isInteger(bi)){
+        throw new Error('A/B waypoint를 선택하세요.');
+      }
+
+      if(ai >= bi){
+        throw new Error(
+          'B waypoint는 GPX상 A waypoint 뒤에 있어야 합니다.'
+        );
+      }
+
+      const analysisDate = $('analysisDate').value;
+
+      if(!analysisDate){
+        throw new Error('Analysis Date를 선택하세요.');
+      }
+
+      const fl = Number($('fl').value);
+
+      if(!Number.isFinite(fl) || fl < 100 || fl > 500){
+        throw new Error('Flight Level을 확인하세요.');
+      }
+
+      // v21: A~B는 최적화 대상 범위만 지정한다.
+      // 백엔드에는 GPX 전체 route를 보내고,
+      // ETE / Distance / Avg Tailwind는 전체 구간 기준으로 계산한다.
+      const fullRoute =
+        wpts.map(p=>({
+          name:p.name,
+          lat:p.lat,
+          lon:p.lon
+        }));
+
+      const payload = {
+        action:'optimize',
+        analysisDate,
+        flightLevel:fl,
+        fullRoute,
+        aIndex:ai,
+        bIndex:bi
+      };
+
+      btn.disabled = true;
+
+      $('runStatus').className = 'status muted';
+      $('runStatus').textContent =
+        'GFS 상층풍 조회 및 최적 route 계산 중...';
+
+      const res =
+        await fetch(
+          BACKEND_URL,
+          {
+            method:'POST',
+            headers:{
+              'Content-Type':'text/plain;charset=utf-8'
+            },
+            body:JSON.stringify(payload),
+            redirect:'follow'
+          }
+        );
+
+      const text = await res.text();
+
+      let data;
+
+      try{
+        data = JSON.parse(text);
+      }catch(_){
+        throw new Error(
+          '백엔드가 JSON이 아닌 응답을 반환했습니다. ' +
+          'Apps Script 실행 기록을 확인하세요.\n' +
+          text.slice(0,300)
+        );
+      }
+
+if(!data.ok){
+  throw new Error(data.error || 'Backend error');
 }
 
-function renderResult(r){
-  document.getElementById('resultCard').classList.remove('hidden');
-  const s = r.summary;
-  document.getElementById('title').textContent =
-    `${r.parsedPlan.origin || ''} → ${r.parsedPlan.destination || ''} · ${s.decision}`;
-  document.getElementById('ppsEte').textContent = fmtSec(s.ppsPlannedEteSec);
-  document.getElementById('origEte').textContent = fmtSec(s.modelOriginalEteSec);
-  document.getElementById('optEte').textContent = fmtSec(s.optimizedEteSec);
-  document.getElementById('diffEte').textContent =
-    (s.eteDifferenceSec >= 0 ? '+' : '-') + fmtSec(Math.abs(s.eteDifferenceSec));
-  document.getElementById('calError').textContent = signedSec(s.calibrationErrorSec);
-  document.getElementById('crossings').textContent =
-    `${s.optimizedPacotsCrossings} / 2`;
+if(!data.result || !data.result.summary){
+  console.error('Unexpected backend response:', data);
 
-  document.getElementById('routeOut').textContent =
-    r.optimizedRoute.map(p =>
-      `${p.name}  ${p.lat.toFixed(3)},${p.lon.toFixed(3)}  FL${p.fl || '-'}  ${p.plannedSpeed || '-'} / TAS ${p.tasKt ?? '-'}kt (${p.tasSource || '-'})  ${shortUtc(p.etaUtc)}  ${p.windDir ?? '-'}°/${p.windKt ?? '-'}kt`
-    ).join('\\n');
-
-  document.getElementById('jsonOut').textContent = JSON.stringify(r,null,2);
+  throw new Error(
+    '백엔드 응답 형식이 올바르지 않습니다. ' +
+    'Apps Script 최신 버전이 배포되었는지 확인하세요.'
+  );
 }
 
-function fmtSec(sec){
-  if(!Number.isFinite(sec)) return '-';
-  const sign = sec < 0 ? '-' : '';
-  sec = Math.round(Math.abs(sec));
-  const h = Math.floor(sec/3600);
-  const m = Math.floor((sec%3600)/60);
-  const s = sec%60;
-  return `${sign}${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
+lastResult = data.result;
+lastSelection = {ai,bi};
 
-function signedSec(sec){
-  if(!Number.isFinite(sec)) return '-';
-  return (sec >= 0 ? '+' : '-') + fmtSec(Math.abs(sec));
-}
+renderResult(data.result);
 
-function shortUtc(s){
-  if(!s) return '-';
-  const d = new Date(s);
-  return `${String(d.getUTCDate()).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}Z`;
-}
+      $('runStatus').className = 'status ok';
+      $('runStatus').textContent = '계산 완료.';
+
+    }catch(err){
+      $('runStatus').className = 'status err';
+      $('runStatus').textContent = err.message;
+
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+
+  function renderResult(r){
+    const s = r.summary;
+
+    $('resultCard').hidden = false;
+
+    $('originalTime').textContent =
+      formatSeconds(s.originalEteSec);
+
+    $('finalTime').textContent =
+      formatSeconds(s.finalEteSec);
+
+    $('originalWind').textContent =
+      'Avg Tailwind ' +
+      signed(s.originalAvgTailwindKt,' kt');
+
+    $('finalWind').textContent =
+      'Avg Tailwind ' +
+      signed(s.finalAvgTailwindKt,' kt');
+
+    $('originalDistance').textContent =
+      'Distance ' +
+      Number(s.originalDistanceNm || 0).toFixed(0) +
+      ' NM';
+
+    const distDelta =
+      Number(s.finalDistanceNm || 0) -
+      Number(s.originalDistanceNm || 0);
+
+    $('finalDistance').textContent =
+      'Distance ' +
+      Number(s.finalDistanceNm || 0).toFixed(0) +
+      ' NM (' +
+      (distDelta >= 0 ? '+' : '') +
+      distDelta.toFixed(0) +
+      ' NM)';
+
+    if(s.changed && s.timeSavingSec > 0){
+      $('saving').textContent =
+        formatSeconds(s.timeSavingSec) + ' 단축';
+
+      $('saving').className = 'saving ok';
+
+    }else{
+      $('saving').textContent = '변화 없음';
+      $('saving').className = 'saving muted';
+    }
+
+    // 화면의 Optimized Route도 A~B segment만이 아니라
+    // A 이전 + optimized A~B + B 이후를 합친 전체 Route로 표시한다.
+    const fullPoints = buildFullPoints();
+
+    const routeText =
+      fullPoints
+        .map(p => {
+          if (p.name && !/^OPT\d+$/i.test(p.name)) {
+            return p.name;
+          }
+          return coordinateToken(p.lat, p.lon);
+        })
+        .join('  →  ');
+
+    $('routeInfo').textContent =
+      routeText || '-';
+
+    const t =
+      r.input.analysisTimeUtc
+        .replace('T',' ')
+        .replace(':00:00Z','Z');
+
+    $('basis').textContent =
+      `분석 기준 ${t} · ` +
+      `FL${r.input.flightLevel} · ` +
+      `${r.input.pressureLevelHpa} hPa · ` +
+      `TAS ${r.input.referenceTasKt} kt · ` +
+      `ETE/Distance/Wind 전체 GPX 기준`;
+
+    $('resultCard').scrollIntoView({
+      behavior:'smooth',
+      block:'start'
+    });
+  }
+
+
+  $('copyRouteBtn').addEventListener('click',async()=>{
+    try{
+      const text = buildFullRouteText();
+
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+      }else{
+        fallbackCopy(text);
+      }
+
+      $('runStatus').className = 'status ok';
+      $('runStatus').textContent = 'Route text를 복사했습니다.';
+
+    }catch(err){
+      $('runStatus').className = 'status err';
+      $('runStatus').textContent =
+        '복사 실패: ' + err.message;
+    }
+  });
+
+
+  $('downloadGpxBtn').addEventListener('click',()=>{
+    try{
+      const xml = buildFullGpx();
+
+      const blob =
+        new Blob(
+          [xml],
+          {type:'application/gpx+xml;charset=utf-8'}
+        );
+
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+
+      a.href = url;
+      a.download = 'wind_optimized_route.gpx';
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(
+        ()=>URL.revokeObjectURL(url),
+        1000
+      );
+
+    }catch(err){
+      $('runStatus').className = 'status err';
+      $('runStatus').textContent = err.message;
+    }
+  });
+
+
+  function buildFullPoints(){
+    if(!lastResult || !lastSelection){
+      throw new Error('먼저 최적 Route를 계산하세요.');
+    }
+
+    const {ai,bi} = lastSelection;
+
+    return [
+      ...wpts.slice(0,ai),
+      ...lastResult.finalSegment,
+      ...wpts.slice(bi+1)
+    ];
+  }
+
+
+  function buildFullRouteText(){
+    return buildFullPoints()
+      .map(p=>{
+        if(
+          p.name &&
+          !/^OPT\d+$/i.test(p.name)
+        ){
+          return p.name;
+        }
+
+        return coordinateToken(p.lat,p.lon);
+      })
+      .join(' ');
+  }
+
+
+  function buildFullGpx(){
+    const points = buildFullPoints();
+
+    const routeName =
+      `${points[0].name || 'START'}-` +
+      `${points[points.length-1].name || 'END'} WIND OPT`;
+
+    const rows =
+      points.map((p,i)=>{
+        const name =
+          p.name ||
+          `OPT${String(i).padStart(3,'0')}`;
+
+        return (
+          `    <rtept lat="${Number(p.lat).toFixed(6)}" ` +
+          `lon="${Number(p.lon).toFixed(6)}">\n` +
+          `      <name>${escapeXml(name)}</name>\n` +
+          `      <overfly>false</overfly>\n` +
+          `    </rtept>`
+        );
+      }).join('\n');
+
+    return (
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
+      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+      'creator="Wind Optimal Route" version="1.1" ' +
+      'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 ' +
+      'http://www.topografix.com/GPX/1/1/gpx.xsd">\n' +
+      '  <rte>\n' +
+      `    <name>${escapeXml(routeName)}</name>\n` +
+      rows + '\n' +
+      '  </rte>\n' +
+      '</gpx>\n'
+    );
+  }
+
+
+  function coordinateToken(lat,lon){
+    const latHem = lat >= 0 ? 'N' : 'S';
+    const lonHem = lon >= 0 ? 'E' : 'W';
+
+    const alat = Math.abs(Number(lat));
+    const alon = Math.abs(Number(lon));
+
+    let latDeg = Math.floor(alat);
+    let latMin = Math.round((alat-latDeg)*60);
+
+    let lonDeg = Math.floor(alon);
+    let lonMin = Math.round((alon-lonDeg)*60);
+
+    if(latMin === 60){
+      latDeg += 1;
+      latMin = 0;
+    }
+
+    if(lonMin === 60){
+      lonDeg += 1;
+      lonMin = 0;
+    }
+
+    return (
+      String(latDeg).padStart(2,'0') +
+      String(latMin).padStart(2,'0') +
+      latHem +
+      String(lonDeg).padStart(3,'0') +
+      String(lonMin).padStart(2,'0') +
+      lonHem
+    );
+  }
+
+
+  function fallbackCopy(text){
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+
+    document.body.appendChild(ta);
+    ta.select();
+
+    if(!document.execCommand('copy')){
+      throw new Error('브라우저 복사를 사용할 수 없습니다.');
+    }
+
+    ta.remove();
+  }
+
+
+  function formatSeconds(sec){
+    const s =
+      Math.max(
+        0,
+        Math.round(Number(sec)||0)
+      );
+
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+
+    return `${h}:${String(m).padStart(2,'0')}`;
+  }
+
+
+  function signed(value,suffix=''){
+    const n = Number(value)||0;
+
+    return (
+      (n>=0?'+':'') +
+      n.toFixed(1) +
+      suffix
+    );
+  }
+
+
+  function escapeHtml(s){
+    return String(s).replace(
+      /[&<>'"]/g,
+      c=>({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        "'":'&#39;',
+        '"':'&quot;'
+      }[c])
+    );
+  }
+
+
+  function escapeXml(s){
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&apos;');
+  }
+
+  function startWindAppAfterAuth(){
+    if(WIND_APP_STARTED) return;
+    WIND_APP_STARTED = true;
+    $('analysisDate').value = utcTodayString();
+  }
+
+  (function waitForPortalAuth(){
+    // common-auth.js가 현재 앱 권한을 확인한 경우에만 실행
+    if(window.CURRENT_PORTAL_USER){
+      startWindAppAfterAuth();
+      return;
+    }
+
+    setTimeout(waitForPortalAuth, 200);
+  })();
+
+})();
 </script>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://bomi87.github.io/SK-Aviation-portal/common-auth.js"></script>
 </body>
 </html>
