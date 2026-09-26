@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wind Optimal Route</title>
+  <title>Wind Optimal Route v25</title>
   <style>
     *{box-sizing:border-box}
     body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#1f2937}
@@ -30,7 +30,7 @@
 <div class="wrap">
   <div class="card">
     <h1>Wind Optimal Route</h1>
-    <div class="sub">PPS Flight Plan 전체를 그대로 붙여넣으세요. PPS 계획 고도와 checkpoint TAS profile을 사용하고, 예상 통과시간에 맞는 GFS로 수평 Route를 최적화합니다.</div>
+    <div class="sub">PPS Flight Plan 전체를 그대로 붙여넣으세요. PPS 계획 FL/TAS를 유지하고, 후보 Route 자체 ETA에 맞춘 4D GFS(U/V 시간·고도 보간)로 oceanic Route를 최적화합니다.</div>
     <textarea id="planText" placeholder="PPS Flight Plan 전체 내용을 Ctrl+A → Ctrl+C 후 여기에 붙여넣기"></textarea>
     <div class="row">
       <button id="runBtn" onclick="runOptimize()">OPTIMIZE</button>
