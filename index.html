@@ -30,7 +30,7 @@
 <div class="wrap">
   <div class="card">
     <h1>Wind Optimal Route</h1>
-    <div class="sub">PPS Flight Plan 전체를 그대로 붙여넣으세요. 계획 고도는 유지하고, waypoint 예상 통과시간에 맞는 GFS로 수평 Route를 최적화합니다.</div>
+    <div class="sub">PPS Flight Plan 전체를 그대로 붙여넣으세요. PPS 계획 고도와 checkpoint TAS profile을 사용하고, 예상 통과시간에 맞는 GFS로 수평 Route를 최적화합니다.</div>
     <textarea id="planText" placeholder="PPS Flight Plan 전체 내용을 Ctrl+A → Ctrl+C 후 여기에 붙여넣기"></textarea>
     <div class="row">
       <button id="runBtn" onclick="runOptimize()">OPTIMIZE</button>
@@ -41,9 +41,11 @@
   <div class="card hidden" id="resultCard">
     <div id="title" style="font-weight:700"></div>
     <div class="grid">
-      <div class="metric"><div class="k">PPS ETE</div><div class="v" id="origEte">-</div></div>
+      <div class="metric"><div class="k">PPS PLAN ETE</div><div class="v" id="ppsEte">-</div></div>
+      <div class="metric"><div class="k">MODEL PPS ROUTE</div><div class="v" id="origEte">-</div></div>
       <div class="metric"><div class="k">OPT ETE</div><div class="v" id="optEte">-</div></div>
       <div class="metric"><div class="k">ETE 차이</div><div class="v" id="diffEte">-</div></div>
+      <div class="metric"><div class="k">CALIBRATION ERROR</div><div class="v" id="calError">-</div></div>
       <div class="metric"><div class="k">PACOTS Crossings</div><div class="v" id="crossings">-</div></div>
     </div>
     <h3>Optimized Route</h3>
@@ -101,16 +103,18 @@ function renderResult(r){
   const s = r.summary;
   document.getElementById('title').textContent =
     `${r.parsedPlan.origin || ''} → ${r.parsedPlan.destination || ''} · ${s.decision}`;
-  document.getElementById('origEte').textContent = fmtSec(s.originalEteSec);
+  document.getElementById('ppsEte').textContent = fmtSec(s.ppsPlannedEteSec);
+  document.getElementById('origEte').textContent = fmtSec(s.modelOriginalEteSec);
   document.getElementById('optEte').textContent = fmtSec(s.optimizedEteSec);
   document.getElementById('diffEte').textContent =
     (s.eteDifferenceSec >= 0 ? '+' : '-') + fmtSec(Math.abs(s.eteDifferenceSec));
+  document.getElementById('calError').textContent = signedSec(s.calibrationErrorSec);
   document.getElementById('crossings').textContent =
     `${s.optimizedPacotsCrossings} / 2`;
 
   document.getElementById('routeOut').textContent =
     r.optimizedRoute.map(p =>
-      `${p.name}  ${p.lat.toFixed(3)},${p.lon.toFixed(3)}  FL${p.fl || '-'}  ${shortUtc(p.etaUtc)}  ${p.windDir ?? '-'}°/${p.windKt ?? '-'}kt`
+      `${p.name}  ${p.lat.toFixed(3)},${p.lon.toFixed(3)}  FL${p.fl || '-'}  ${p.plannedSpeed || '-'} / TAS ${p.tasKt ?? '-'}kt (${p.tasSource || '-'})  ${shortUtc(p.etaUtc)}  ${p.windDir ?? '-'}°/${p.windKt ?? '-'}kt`
     ).join('\\n');
 
   document.getElementById('jsonOut').textContent = JSON.stringify(r,null,2);
@@ -124,6 +128,11 @@ function fmtSec(sec){
   const m = Math.floor((sec%3600)/60);
   const s = sec%60;
   return `${sign}${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function signedSec(sec){
+  if(!Number.isFinite(sec)) return '-';
+  return (sec >= 0 ? '+' : '-') + fmtSec(Math.abs(sec));
 }
 
 function shortUtc(s){
