@@ -711,41 +711,49 @@ renderResult(data.result);
   });
 
 
-  $('openSkyVectorBtn').addEventListener('click',()=>{
-    try{
-      const routeText = buildFullRouteText();
+$('openSkyVectorBtn').addEventListener('click', () => {
+  try {
+    const points = buildFullPoints();
+    const routeText = buildSkyVectorRouteText();
+    const view = getRouteView(points);
 
-      if(!routeText){
-        throw new Error('SkyVector로 보낼 Route가 없습니다.');
-      }
-
-      const skyVectorUrl =
-        'https://skyvector.com/?fpl=' +
-        encodeURIComponent(routeText);
-
-      const win = window.open(
-        skyVectorUrl,
-        '_blank',
-        'noopener,noreferrer'
-      );
-
-      if(!win){
-        throw new Error(
-          '새 창이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도하세요.'
-        );
-      }
-
-      $('runStatus').className = 'status ok';
-      $('runStatus').textContent =
-        '수정된 전체 Route를 SkyVector에서 열었습니다.';
-
-    }catch(err){
-      $('runStatus').className = 'status err';
-      $('runStatus').textContent =
-        'SkyVector 열기 실패: ' + err.message;
+    if (!routeText) {
+      throw new Error('먼저 최적 Route를 계산하세요.');
     }
-  });
 
+    // SkyVector chart=304에서는 숫자가 커질수록 더 넓은 범위를 보여준다.
+    // Route 전체 범위를 계산해서 중심 + zoom을 자동 지정한다.
+    const zoom = view ? view.zoom : 10;
+
+    let skyVectorUrl =
+      'https://skyvector.com/?chart=304' +
+      '&zoom=' + zoom +
+      '&fpl=' + encodeURIComponent(routeText);
+
+    if (view) {
+      skyVectorUrl +=
+        '&ll=' +
+        view.lat.toFixed(4) +
+        ',' +
+        view.lon.toFixed(4);
+    }
+
+    window.open(
+      skyVectorUrl,
+      '_blank',
+      'noopener,noreferrer'
+    );
+
+    $('runStatus').className = 'status ok';
+    $('runStatus').textContent =
+      'SkyVector를 새 탭에서 열었습니다.';
+
+  } catch (err) {
+    $('runStatus').className = 'status err';
+    $('runStatus').textContent =
+      'SkyVector 열기 실패: ' + err.message;
+  }
+});
 
   function buildFullPoints(){
     if(!lastResult || !lastSelection){
@@ -777,6 +785,118 @@ renderResult(data.result);
       .join(' ');
   }
 
+
+  // SkyVector의 fpl 파라미터는 마지막 토큰을 목적지 공항으로 해석할 수 있다.
+  // 예: 마지막 waypoint가 TOU이면 Touho Airport(NWWU)로 자동 해석될 수 있음.
+  // 따라서 실제 공항 ICAO(4글자)가 아닌 첫/마지막 waypoint는 좌표로 전달하여
+  // waypoint 위치를 정확히 보존한다. 내부 waypoint 이름은 기존 그대로 유지한다.
+  function buildSkyVectorRouteText(){
+    const points = buildFullPoints();
+
+    return points
+      .map((p,i)=>{
+        const isEdge = i === 0 || i === points.length - 1;
+        const name = String(p.name || '').trim().toUpperCase();
+        const isOptimizedName = /^OPT\d+$/i.test(name);
+        const isIcaoAirport = /^[A-Z]{4}$/.test(name);
+
+        if(isEdge && !isIcaoAirport){
+          return coordinateToken(p.lat,p.lon);
+        }
+
+        if(name && !isOptimizedName){
+          return name;
+        }
+
+        return coordinateToken(p.lat,p.lon);
+      })
+      .join(' ');
+  }
+
+function getRouteView(points){
+  if(!Array.isArray(points) || !points.length){
+    return null;
+  }
+
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+
+  // 날짜변경선을 넘는 태평양 Route 대응.
+  // 첫 waypoint longitude를 기준으로 longitude를 연속 좌표로 펼친다.
+  const refLon = Number(points[0].lon);
+
+  points.forEach(p => {
+    const lat = Number(p.lat);
+    let lon = Number(p.lon);
+
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+      return;
+    }
+
+    while(lon - refLon > 180) lon -= 360;
+    while(lon - refLon < -180) lon += 360;
+
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+    minLon = Math.min(minLon, lon);
+    maxLon = Math.max(maxLon, lon);
+  });
+
+  if(
+    !Number.isFinite(minLat) ||
+    !Number.isFinite(maxLat) ||
+    !Number.isFinite(minLon) ||
+    !Number.isFinite(maxLon)
+  ){
+    return null;
+  }
+
+  const lat = (minLat + maxLat) / 2;
+  let lon = (minLon + maxLon) / 2;
+
+  while(lon > 180) lon -= 360;
+  while(lon < -180) lon += 360;
+
+  const latSpan = maxLat - minLat;
+  const lonSpan = maxLon - minLon;
+
+  // 위도가 높을수록 같은 경도 차이의 실제 동서 폭은 줄어드므로 보정.
+  const lonSpanAdjusted =
+    lonSpan * Math.max(0.35, Math.cos(lat * Math.PI / 180));
+
+  // 화면 가장자리에 route가 붙지 않도록 약 25% 여유를 둔다.
+  const span = Math.max(latSpan, lonSpanAdjusted) * 1.25;
+
+  // SkyVector chart=304는 zoom 숫자가 커질수록 더 넓게 보인다.
+  // 장거리/태평양 횡단은 10~12 수준으로 자동 zoom-out.
+  let zoom;
+
+  if(span >= 80){
+    zoom = 12;
+  }else if(span >= 55){
+    zoom = 10;
+  }else if(span >= 35){
+    zoom = 8;
+  }else if(span >= 22){
+    zoom = 6;
+  }else if(span >= 12){
+    zoom = 4;
+  }else if(span >= 6){
+    zoom = 2;
+  }else{
+    zoom = 1;
+  }
+
+  return {
+    lat,
+    lon,
+    zoom,
+    latSpan,
+    lonSpan
+  };
+}
 
   function buildFullGpx(){
     const points = buildFullPoints();
